@@ -12,9 +12,28 @@ export default function Competitions({ stats, onRefresh, username }) {
   });
   const [notification, setNotification] = useState('');
 
+  // Location query states
+  const [locationName, setLocationName] = useState(() => {
+    return localStorage.getItem('helthee_last_location_name') || 'Munich';
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [locationStatus, setLocationStatus] = useState('');
+
   useEffect(() => {
     fetchCompetitionData();
-    fetchLocalChallenges();
+    
+    const savedLat = localStorage.getItem('helthee_last_lat');
+    const savedLon = localStorage.getItem('helthee_last_lon');
+    const savedCity = localStorage.getItem('helthee_last_location_name');
+    
+    if (savedLat && savedLon) {
+      fetchLocalChallenges('', parseFloat(savedLat), parseFloat(savedLon));
+    } else if (savedCity) {
+      fetchLocalChallenges(savedCity);
+    } else {
+      fetchLocalChallenges('Munich');
+    }
   }, [username]);
 
   const fetchCompetitionData = async () => {
@@ -28,12 +47,29 @@ export default function Competitions({ stats, onRefresh, username }) {
     }
   };
 
-  const fetchLocalChallenges = async () => {
+  const fetchLocalChallenges = async (cityVal = '', latVal = null, lonVal = null) => {
     try {
-      const res = await fetch('http://localhost:8000/api/competitions/local');
+      let url = 'http://localhost:8000/api/competitions/local';
+      const params = [];
+      if (cityVal) params.push(`city=${encodeURIComponent(cityVal)}`);
+      if (latVal !== null) params.push(`lat=${latVal}`);
+      if (lonVal !== null) params.push(`lon=${lonVal}`);
+      
+      if (params.length > 0) {
+        url += `?${params.join('&')}`;
+      }
+
+      const res = await fetch(url);
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setLocalChallenges(data);
+      
+      if (data && Array.isArray(data.challenges)) {
+        setLocalChallenges(data.challenges);
+        setLocationName(data.city);
+        localStorage.setItem('helthee_last_location_name', data.city);
+        if (data.lat !== null && data.lon !== null && data.lat !== undefined && data.lon !== undefined) {
+          localStorage.setItem('helthee_last_lat', data.lat.toString());
+          localStorage.setItem('helthee_last_lon', data.lon.toString());
+        }
       } else {
         setLocalChallenges([]);
       }
@@ -41,6 +77,54 @@ export default function Competitions({ stats, onRefresh, username }) {
       console.error("Error loading local challenges:", err);
       setLocalChallenges([]);
     }
+  };
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus("Geolocation is not supported by your browser.");
+      return;
+    }
+    
+    setIsDetecting(true);
+    setLocationStatus("Accessing GPS...");
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocationStatus("GPS coordinates retrieved. Resolving city...");
+        fetchLocalChallenges('', latitude, longitude).then(() => {
+          setIsDetecting(false);
+          setLocationStatus("");
+        });
+      },
+      (error) => {
+        console.error("Error detecting location:", error);
+        setIsDetecting(false);
+        let msg = "GPS access denied. Enter a city manually.";
+        if (error.code === error.POSITION_UNAVAILABLE) {
+          msg = "GPS signal unavailable. Enter a city manually.";
+        } else if (error.code === error.TIMEOUT) {
+          msg = "GPS request timed out. Enter a city manually.";
+        }
+        setLocationStatus(msg);
+        setTimeout(() => setLocationStatus(''), 5000);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    );
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    setIsDetecting(true);
+    setLocationStatus(`Searching for "${searchQuery}"...`);
+    
+    fetchLocalChallenges(searchQuery.trim()).then(() => {
+      setIsDetecting(false);
+      setSearchQuery('');
+      setLocationStatus("");
+    });
   };
 
   const handleToggleLocalJoin = (id, title) => {
@@ -135,9 +219,39 @@ export default function Competitions({ stats, onRefresh, username }) {
         {/* Local Challenges Section */}
         {localChallenges && localChallenges.length > 0 && (
           <div className="local-challenges-section">
-            <div className="section-title">
+            <div className="location-control-bar">
+              <form onSubmit={handleSearchSubmit} className="location-search-form">
+                <input 
+                  type="text" 
+                  className="location-input"
+                  placeholder="Search city (e.g. London, New York...)" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <button type="submit" className="btn btn-sm btn-accent search-btn">
+                  Search
+                </button>
+              </form>
+              
+              <button 
+                className={`btn btn-sm btn-secondary gps-btn ${isDetecting ? 'loading' : ''}`}
+                onClick={handleDetectLocation}
+                disabled={isDetecting}
+              >
+                <MapPin size={14} className={isDetecting ? 'pulse-icon' : ''} />
+                <span>{isDetecting ? 'Detecting...' : 'Detect GPS'}</span>
+              </button>
+            </div>
+            
+            {locationStatus && (
+              <div className="location-status-message">
+                <span>{locationStatus}</span>
+              </div>
+            )}
+
+            <div className="section-title" style={{ marginTop: '0.5rem' }}>
               <MapPin size={18} color="var(--accent-cyan)" />
-              <h4>Upcoming Challenges Near You</h4>
+              <h4>Upcoming Challenges Near You in <span className="location-highlight">{locationName}</span></h4>
             </div>
 
             <div className="local-challenges-grid">
@@ -449,6 +563,69 @@ export default function Competitions({ stats, onRefresh, username }) {
         .empty-competitions p {
           font-size: 0.8rem;
           color: var(--text-secondary);
+        }
+        .location-control-bar {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 0.75rem;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          padding: 0.5rem 0.75rem;
+          border-radius: 12px;
+        }
+        .location-search-form {
+          display: flex;
+          flex-grow: 1;
+          gap: 0.5rem;
+        }
+        .location-input {
+          flex-grow: 1;
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          padding: 0.4rem 0.75rem;
+          color: var(--text-primary);
+          font-size: 0.8rem;
+          transition: var(--transition-smooth);
+        }
+        .location-input:focus {
+          border-color: var(--accent-cyan);
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(82, 183, 136, 0.15);
+        }
+        .search-btn {
+          font-size: 0.75rem;
+          padding: 0.4rem 0.9rem;
+          border-radius: 8px;
+        }
+        .gps-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.75rem;
+          padding: 0.4rem 0.9rem;
+          border-radius: 8px;
+        }
+        .location-status-message {
+          font-size: 0.75rem;
+          color: var(--text-secondary);
+          margin-top: -0.25rem;
+          margin-bottom: 0.5rem;
+          padding-left: 0.25rem;
+          font-style: italic;
+        }
+        .location-highlight {
+          color: var(--accent-cyan);
+          font-weight: 700;
+          text-shadow: 0 0 10px rgba(116, 198, 157, 0.2);
+        }
+        .pulse-icon {
+          animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+          from { opacity: 0.4; }
+          to { opacity: 1; }
         }
       `}</style>
     </div>

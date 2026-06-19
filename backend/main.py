@@ -1,5 +1,9 @@
 import datetime
 import random
+import math
+import json
+import urllib.request
+import urllib.parse
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,6 +36,55 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# Helper functions for Geolocation & Geocoding
+def calculate_haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    # Earth radius in kilometers
+    R = 6371.0
+    
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    
+    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    return R * c
+
+def reverse_geocode(lat: float, lon: float) -> str:
+    url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json"
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "HeltheeApp/1.0 (contact@helthee.com)"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=3) as response:
+            data = json.loads(response.read().decode())
+            address = data.get("address", {})
+            city = address.get("city") or address.get("town") or address.get("village") or address.get("suburb") or address.get("county") or "Unknown Location"
+            return city
+    except Exception as e:
+        print(f"Error in reverse_geocode: {e}")
+        return "Unknown Location"
+
+def geocode_city(city_name: str) -> Optional[dict]:
+    encoded_city = urllib.parse.quote(city_name)
+    url = f"https://nominatim.openstreetmap.org/search?q={encoded_city}&format=json&limit=1"
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "HeltheeApp/1.0 (contact@helthee.com)"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=3) as response:
+            data = json.loads(response.read().decode())
+            if data:
+                return {
+                    "lat": float(data[0]["lat"]),
+                    "lon": float(data[0]["lon"]),
+                    "display_name": data[0]["display_name"].split(",")[0]
+                }
+    except Exception as e:
+        print(f"Error in geocode_city: {e}")
+    return None
 
 # Pydantic schemas
 class StepLogSchema(BaseModel):
@@ -513,39 +566,132 @@ def chat_gpt(data: ChatMessageSchema, db: Session = Depends(get_db)):
     return {"reply": reply}
 
 @app.get("/api/competitions/local")
-def get_local_challenges():
-    return [
-        {
-            "id": 101,
-            "title": "Hyrox Championship",
-            "type": "Functional Fitness",
-            "location": "Convention Center (2.5 km away)",
-            "date": "July 12, 2026",
-            "description": "The global fitness race combining 8x 1km running loops and 8 functional workouts (Sled Push, Burpees, Rowing).",
-            "difficulty": "Advanced",
-            "participants_count": 342
-        },
-        {
-            "id": 102,
-            "title": "Ironman 70.3 Regional",
-            "type": "Triathlon",
-            "location": "Lake Marina Park (14.8 km away)",
-            "date": "August 24, 2026",
-            "description": "The ultimate test of endurance: 1.9 km swim, 90 km bike ride, and 21.1 km half-marathon run.",
-            "difficulty": "Extreme",
-            "participants_count": 895
-        },
-        {
-            "id": 103,
-            "title": "Pine Hills Trail Run",
-            "type": "Trail Running",
-            "location": "Pine Hills Forest Reserve (8.2 km away)",
-            "date": "July 28, 2026",
-            "description": "A scenic but rugged 15K trail run through mud paths, steep inclines, and forest tracks.",
-            "difficulty": "Intermediate",
-            "participants_count": 128
-        }
-    ]
+def get_local_challenges(city: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None):
+    # Default location: Munich, Germany
+    default_city = "Munich"
+    default_lat = 48.1351
+    default_lon = 11.5820
+    
+    resolved_city = None
+    resolved_lat = None
+    resolved_lon = None
+    
+    # 1. If lat/lon are provided, try reverse geocoding to find city
+    if lat is not None and lon is not None:
+        resolved_lat = lat
+        resolved_lon = lon
+        resolved_city = reverse_geocode(lat, lon)
+        # If reverse geocode failed or didn't return a valid string, fallback
+        if not resolved_city or resolved_city == "Unknown Location":
+            resolved_city = "Your Location"
+    
+    # 2. Else if city name is provided, geocode it to find coordinates
+    elif city and city.strip():
+        search_result = geocode_city(city.strip())
+        if search_result:
+            resolved_city = search_result["display_name"]
+            resolved_lat = search_result["lat"]
+            resolved_lon = search_result["lon"]
+        else:
+            # If search fails, use the city name directly but fallback to default coords
+            resolved_city = city.strip()
+            resolved_lat = default_lat
+            resolved_lon = default_lon
+            
+    # 3. Else (no params), fallback to Munich
+    else:
+        resolved_city = default_city
+        resolved_lat = default_lat
+        resolved_lon = default_lon
+
+    # Offset coordinates slightly so they look like distinct venues in/around the city
+    # Event 1: Hyrox (close to center, indoor convention center)
+    hyrox_lat = resolved_lat + 0.015
+    hyrox_lon = resolved_lon - 0.012
+    hyrox_dist = calculate_haversine(resolved_lat, resolved_lon, hyrox_lat, hyrox_lon)
+    
+    # Event 2: Ironman (further away, e.g. lake/coastal park)
+    ironman_lat = resolved_lat + 0.15
+    ironman_lon = resolved_lon + 0.22
+    ironman_dist = calculate_haversine(resolved_lat, resolved_lon, ironman_lat, ironman_lon)
+    
+    # Event 3: Trail Run (park/forest)
+    trail_lat = resolved_lat - 0.045
+    trail_lon = resolved_lon + 0.062
+    trail_dist = calculate_haversine(resolved_lat, resolved_lon, trail_lat, trail_lon)
+    
+    # Custom venue names depending on the city name
+    c_lower = resolved_city.lower()
+    if "london" in c_lower:
+        hyrox_venue = "ExCeL London"
+        ironman_venue = "Weymouth Beach & Coast"
+        trail_venue = "Richmond Park Forest Trails"
+    elif "new york" in c_lower or "nyc" in c_lower:
+        hyrox_venue = "Javits Center (Manhattan)"
+        ironman_venue = "Lake Placid Outdoor Center"
+        trail_venue = "Central Park Loop Paths"
+    elif "munich" in c_lower or "münchen" in c_lower:
+        hyrox_venue = "Messe München (Hall C6)"
+        ironman_venue = "Lake Starnberg Marina"
+        trail_venue = "Englischer Garten Trails"
+    elif "bengaluru" in c_lower or "bangalore" in c_lower:
+        hyrox_venue = "Bangalore International Exhibition Centre (BIEC)"
+        ironman_venue = "Chikkaballapur Lakes"
+        trail_venue = "Cubbon Park & Nandi Hills Trails"
+    elif "mumbai" in c_lower or "bombay" in c_lower:
+        hyrox_venue = "Bombay Exhibition Centre (Nesco)"
+        ironman_venue = "Pawna Lake Marina"
+        trail_venue = "Sanjay Gandhi National Park Trails"
+    elif "sydney" in c_lower:
+        hyrox_venue = "Sydney Showground (Olympic Park)"
+        ironman_venue = "Manly Beach Coastline"
+        trail_venue = "Centennial Parklands"
+    elif "tokyo" in c_lower:
+        hyrox_venue = "Tokyo Big Sight (East Hall)"
+        ironman_venue = "Lake Motosu Marina (Mount Fuji)"
+        trail_venue = "Yoyogi Park Forest paths"
+    else:
+        hyrox_venue = f"{resolved_city} Convention Center"
+        ironman_venue = f"{resolved_city} Lakeside Park"
+        trail_venue = f"{resolved_city} Nature Reserve Trails"
+
+    return {
+        "city": resolved_city,
+        "lat": resolved_lat,
+        "lon": resolved_lon,
+        "challenges": [
+            {
+                "id": 101,
+                "title": f"Hyrox {resolved_city}",
+                "type": "Functional Fitness",
+                "location": f"{hyrox_venue} ({hyrox_dist:.1f} km away)",
+                "date": "July 12, 2026",
+                "description": "The global fitness race combining 8x 1km running loops and 8 functional workouts (Sled Push, Burpees, Rowing).",
+                "difficulty": "Advanced",
+                "participants_count": 342
+            },
+            {
+                "id": 102,
+                "title": f"Ironman 70.3 {resolved_city} Regional",
+                "type": "Triathlon",
+                "location": f"{ironman_venue} ({ironman_dist:.1f} km away)",
+                "date": "August 24, 2026",
+                "description": "The ultimate test of endurance: 1.9 km swim, 90 km bike ride, and 21.1 km half-marathon run.",
+                "difficulty": "Extreme",
+                "participants_count": 895
+            },
+            {
+                "id": 103,
+                "title": f"{resolved_city} Forest Trail Run",
+                "type": "Trail Running",
+                "location": f"{trail_venue} ({trail_dist:.1f} km away)",
+                "date": "July 28, 2026",
+                "description": "A scenic but rugged 15K trail run through mud paths, steep inclines, and forest tracks.",
+                "difficulty": "Intermediate",
+                "participants_count": 128
+            }
+        ]
+    }
 
 @app.get("/api/competitions")
 def get_competitions(username: str = "Alex", db: Session = Depends(get_db)):

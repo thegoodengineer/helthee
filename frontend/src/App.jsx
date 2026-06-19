@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Flame, Footprints, Bot, Utensils, 
-  Activity, Award, User, RefreshCw, AlertCircle
+  Activity, Award, User, RefreshCw, AlertCircle, Trophy, Sparkles
 } from 'lucide-react';
 
 import StreakTree from './components/StreakTree';
@@ -24,7 +24,7 @@ export default function App() {
       setError(false);
       const res = await fetch('http://localhost:8000/api/dashboard');
       if (!res.ok) throw new Error("Backend connection issue");
-      const data = await res.ok ? await res.json() : null;
+      const data = await res.json();
       setStats(data);
     } catch (err) {
       console.error("Failed to connect to backend api:", err);
@@ -43,36 +43,141 @@ export default function App() {
   };
 
   const renderActiveView = () => {
-    if (activeTab === 'dashboard') {
-      return (
-        <div className="dashboard-grid">
-          {/* Row 1 */}
-          <StreakTree stats={stats} onRefresh={triggerRefresh} />
-          <Competitions stats={stats} onRefresh={triggerRefresh} />
-          
-          {/* Row 2 */}
-          <StepsCalculator stats={stats} onRefresh={triggerRefresh} />
-          <BMICalculator stats={stats} onRefresh={triggerRefresh} />
-          <MealPhoto stats={stats} onRefresh={triggerRefresh} />
-        </div>
-      );
+    switch (activeTab) {
+      case 'dashboard':
+        return renderDashboardHub();
+      case 'tree':
+        return (
+          <div className="focused-module-view">
+            <StreakTree stats={stats} onRefresh={triggerRefresh} />
+          </div>
+        );
+      case 'steps':
+        return (
+          <div className="focused-module-view">
+            <StepsCalculator stats={stats} onRefresh={triggerRefresh} />
+          </div>
+        );
+      case 'competitions':
+        return (
+          <div className="focused-module-view">
+            <Competitions stats={stats} onRefresh={triggerRefresh} />
+          </div>
+        );
+      case 'chat':
+        return (
+          <div className="focused-module-view">
+            <HelpGPT />
+          </div>
+        );
+      case 'meals':
+        return (
+          <div className="focused-module-view">
+            <MealPhoto stats={stats} onRefresh={triggerRefresh} />
+          </div>
+        );
+      case 'bmi':
+        return (
+          <div className="focused-module-view">
+            <BMICalculator stats={stats} onRefresh={triggerRefresh} />
+          </div>
+        );
+      case 'report':
+        return (
+          <div className="focused-module-view">
+            <WeeklyReport stats={stats} refreshTrigger={refreshTrigger} />
+          </div>
+        );
+      default:
+        return renderDashboardHub();
     }
+  };
 
-    if (activeTab === 'chat') {
-      return (
-        <div className="focused-module-view">
-          <HelpGPT />
-        </div>
-      );
-    }
+  const renderDashboardHub = () => {
+    const stepPercent = stats ? Math.min((stats.today_steps / stats.steps_goal) * 100, 100) : 0;
+    const caloriePercent = stats ? Math.min((stats.today_calories / 2000) * 100, 100) : 0;
 
-    if (activeTab === 'report') {
-      return (
-        <div className="focused-module-view">
-          <WeeklyReport stats={stats} refreshTrigger={refreshTrigger} />
+    return (
+      <div className="dashboard-grid">
+        {/* Streak Tree Summary Card */}
+        <div className="glass-card hub-card cursor-pointer" onClick={() => setActiveTab('tree')}>
+          <div className="hub-card-header">
+            <Flame size={20} color="var(--accent-purple)" />
+            <span className="hub-title">Streak Tree</span>
+          </div>
+          <div className="hub-value">{stats?.current_streak || 0} Days</div>
+          <div className="hub-meta">Stage: <span className="text-gradient-purple font-bold">{stats?.tree_stage}</span></div>
+          <div className="hub-tap-hint">Open Habit Logger →</div>
         </div>
-      );
-    }
+
+        {/* Steps Tracker Summary Card */}
+        <div className="glass-card hub-card cursor-pointer" onClick={() => setActiveTab('steps')}>
+          <div className="hub-card-header">
+            <Footprints size={20} color="var(--accent-cyan)" />
+            <span className="hub-title">Steps Log</span>
+          </div>
+          <div className="hub-value">{stats?.today_steps?.toLocaleString() || 0}</div>
+          <div className="hub-progress-bar">
+            <div className="progress-fill" style={{ width: `${stepPercent}%`, background: 'var(--accent-cyan)' }} />
+          </div>
+          <div className="hub-meta">Goal: {stats?.steps_goal?.toLocaleString()} steps</div>
+          <div className="hub-tap-hint">Open Calculator →</div>
+        </div>
+
+        {/* Meal Photo Summary Card */}
+        <div className="glass-card hub-card cursor-pointer" onClick={() => setActiveTab('meals')}>
+          <div className="hub-card-header">
+            <Utensils size={20} color="var(--accent-emerald)" />
+            <span className="hub-title">Meal Tracker</span>
+          </div>
+          <div className="hub-value">{stats?.today_calories || 0} <span className="unit">kcal</span></div>
+          <div className="hub-progress-bar">
+            <div className="progress-fill" style={{ width: `${caloriePercent}%`, background: 'var(--accent-emerald)' }} />
+          </div>
+          <div className="hub-meta">Protein: {stats?.today_macros?.protein?.toFixed(0)}g | Carbs: {stats?.today_macros?.carbs?.toFixed(0)}g</div>
+          <div className="hub-tap-hint">Log Meal Photo →</div>
+        </div>
+
+        {/* BMI Profile Summary Card */}
+        <div className="glass-card hub-card cursor-pointer" onClick={() => setActiveTab('bmi')}>
+          <div className="hub-card-header">
+            <Activity size={20} color="var(--accent-amber)" />
+            <span className="hub-title">BMI Profile</span>
+          </div>
+          <div className="hub-value">
+            {stats ? (stats.weight / ((stats.height/100) * (stats.height/100))).toFixed(1) : '22.9'}
+          </div>
+          <div className="hub-meta">Height: {stats?.height} cm | Weight: {stats?.weight} kg</div>
+          <div className="hub-tap-hint">Adjust Metrics →</div>
+        </div>
+
+        {/* Competitions Standing Card */}
+        <div className="glass-card hub-card cursor-pointer" onClick={() => setActiveTab('competitions')} style={{ gridColumn: 'span 6' }}>
+          <div className="hub-card-header">
+            <Trophy size={20} color="#ffd166" />
+            <span className="hub-title">Active Challenges</span>
+          </div>
+          <div className="hub-text-detail">
+            <h3>Summer Step Challenge</h3>
+            <p>Compete with Sarah, Emma, and Michael on the leaderboard standings.</p>
+          </div>
+          <div className="hub-tap-hint" style={{ marginTop: 'auto' }}>View Leaderboards →</div>
+        </div>
+
+        {/* HelpGPT Prompt Box Card */}
+        <div className="glass-card hub-card cursor-pointer" onClick={() => setActiveTab('chat')} style={{ gridColumn: 'span 6' }}>
+          <div className="hub-card-header">
+            <Bot size={20} color="var(--accent-cyan)" />
+            <span className="hub-title">HelpGPT Coach</span>
+          </div>
+          <div className="hub-text-detail">
+            <h3>Need Fitness Advice?</h3>
+            <p>Chat with HelpGPT to get smart food recipes, workout plans, and health tips.</p>
+          </div>
+          <div className="hub-tap-hint" style={{ marginTop: 'auto' }}>Open AI Coach Chat →</div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -89,21 +194,56 @@ export default function App() {
             className={`sidebar-item ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('dashboard')}
           >
-            <LayoutDashboard size={20} />
-            <span>Dashboard</span>
+            <LayoutDashboard size={18} />
+            <span>Dashboard Hub</span>
+          </li>
+          <li 
+            className={`sidebar-item ${activeTab === 'tree' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tree')}
+          >
+            <Flame size={18} />
+            <span>Streak Tree</span>
+          </li>
+          <li 
+            className={`sidebar-item ${activeTab === 'steps' ? 'active' : ''}`}
+            onClick={() => setActiveTab('steps')}
+          >
+            <Footprints size={18} />
+            <span>Steps Calculator</span>
+          </li>
+          <li 
+            className={`sidebar-item ${activeTab === 'meals' ? 'active' : ''}`}
+            onClick={() => setActiveTab('meals')}
+          >
+            <Utensils size={18} />
+            <span>Meal Photo Log</span>
+          </li>
+          <li 
+            className={`sidebar-item ${activeTab === 'bmi' ? 'active' : ''}`}
+            onClick={() => setActiveTab('bmi')}
+          >
+            <Activity size={18} />
+            <span>BMI Calculator</span>
+          </li>
+          <li 
+            className={`sidebar-item ${activeTab === 'competitions' ? 'active' : ''}`}
+            onClick={() => setActiveTab('competitions')}
+          >
+            <Trophy size={18} />
+            <span>Competitions</span>
           </li>
           <li 
             className={`sidebar-item ${activeTab === 'chat' ? 'active' : ''}`}
             onClick={() => setActiveTab('chat')}
           >
-            <Bot size={20} />
-            <span>HelpGPT Chat</span>
+            <Bot size={18} />
+            <span>HelpGPT Coach</span>
           </li>
           <li 
             className={`sidebar-item ${activeTab === 'report' ? 'active' : ''}`}
             onClick={() => setActiveTab('report')}
           >
-            <Award size={20} />
+            <Award size={18} />
             <span>Weekly Insights</span>
           </li>
         </ul>
@@ -111,7 +251,7 @@ export default function App() {
         {stats && (
           <div className="sidebar-profile">
             <div className="profile-icon">
-              <User size={18} />
+              <User size={16} />
             </div>
             <div className="profile-details">
               <div className="profile-name">{stats.username}</div>
@@ -126,14 +266,24 @@ export default function App() {
         <header className="dashboard-header">
           <div className="dashboard-title">
             <h1>
-              {activeTab === 'dashboard' && 'Health Dashboard'}
-              {activeTab === 'chat' && 'HelpGPT Assistant'}
-              {activeTab === 'report' && 'Performance Report'}
+              {activeTab === 'dashboard' && 'Helthee Hub'}
+              {activeTab === 'tree' && 'Streak Tree Habit Log'}
+              {activeTab === 'steps' && 'Daily Steps Calculator'}
+              {activeTab === 'meals' && 'Meal Photo Logger'}
+              {activeTab === 'bmi' && 'Weight & Height BMI Gauges'}
+              {activeTab === 'competitions' && 'Fitness Competitions Leaderboard'}
+              {activeTab === 'chat' && 'HelpGPT Fitness Coach'}
+              {activeTab === 'report' && 'Weekly Performance Insights'}
             </h1>
             <p>
-              {activeTab === 'dashboard' && 'Real-time overview of streaks, steps, and weight parameters.'}
-              {activeTab === 'chat' && 'Your virtual fitness expert coach, ready to answer questions.'}
-              {activeTab === 'report' && 'Detailed graphs and achievements logged over the week.'}
+              {activeTab === 'dashboard' && 'Welcome back! Select a module to manage habits, logs, and statistics.'}
+              {activeTab === 'tree' && 'Build consistency, water your streak tree daily, and hit goals.'}
+              {activeTab === 'steps' && 'Log steps, count calories burned, and check active metrics.'}
+              {activeTab === 'meals' && 'Log calorie counts, estimate carbs/fat/protein ratios.'}
+              {activeTab === 'bmi' && 'Check weight status index ranges and advice.'}
+              {activeTab === 'competitions' && 'View local standings, step counts, and active brackets.'}
+              {activeTab === 'chat' && 'Get health tips, menu suggestions, and exercise ideas.'}
+              {activeTab === 'report' && 'Summary bar charts of steps activity and calorie intake.'}
             </p>
           </div>
 
@@ -224,6 +374,84 @@ export default function App() {
           flex-direction: column;
           gap: 1.5rem;
           max-width: 1000px;
+          animation: fadeIn 0.4s ease-out;
+        }
+        
+        /* Hub Cards Grid */
+        .hub-card {
+          grid-column: span 3;
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+          padding: 1.5rem;
+          border-radius: 18px;
+        }
+        .cursor-pointer {
+          cursor: pointer;
+        }
+        .hub-card-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .hub-title {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .hub-value {
+          font-family: var(--font-display);
+          font-size: 1.6rem;
+          font-weight: 800;
+        }
+        .hub-value .unit {
+          font-size: 0.8rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+        }
+        .hub-progress-bar {
+          height: 4px;
+          background: rgba(255,255,255,0.05);
+          border-radius: 10px;
+          overflow: hidden;
+        }
+        .hub-progress-bar .progress-fill {
+          height: 100%;
+        }
+        .hub-meta {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          font-weight: 600;
+        }
+        .hub-tap-hint {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          margin-top: 0.25rem;
+          transition: var(--transition-smooth);
+        }
+        .hub-card:hover .hub-tap-hint {
+          color: var(--text-primary);
+          transform: translateX(3px);
+        }
+        
+        .hub-text-detail h3 {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin-bottom: 0.25rem;
+        }
+        .hub-text-detail p {
+          font-size: 0.8rem;
+          color: var(--text-secondary);
+          line-height: 1.4;
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(5px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

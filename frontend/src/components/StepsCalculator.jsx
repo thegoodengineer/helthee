@@ -12,6 +12,7 @@ export default function StepsCalculator({ stats, onRefresh }) {
   const [samsungConnected, setSamsungConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
+  const [fileUploading, setFileUploading] = useState(false);
 
   useEffect(() => {
     if (stats) {
@@ -111,6 +112,41 @@ export default function StepsCalculator({ stats, onRefresh }) {
         setTimeout(() => setSyncMessage(''), 4000);
       }
     }, 2000);
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setFileUploading(true);
+    setSyncMessage('Parsing Samsung Health exported file...');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('http://localhost:8000/api/steps/import-samsung-file', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || 'Failed to import file');
+      }
+
+      const data = await res.json();
+      setSteps(data.today_steps);
+      onRefresh();
+      setSyncMessage(data.message);
+    } catch (err) {
+      console.error("Error importing file:", err);
+      setSyncMessage(err.message || 'File import failed. Verify the file format.');
+    } finally {
+      setFileUploading(false);
+      e.target.value = null;
+      setTimeout(() => setSyncMessage(''), 6000);
+    }
   };
 
   // Conversions
@@ -262,6 +298,31 @@ export default function StepsCalculator({ stats, onRefresh }) {
             </button>
           </div>
         )}
+
+        <div className="file-import-section" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+          <div className="file-import-label" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+            Or Import Samsung Export File:
+          </div>
+          <input 
+            type="file" 
+            id="samsung-file-input" 
+            accept=".json,.csv" 
+            style={{ display: 'none' }} 
+            onChange={handleFileUpload}
+            disabled={fileUploading}
+          />
+          <button 
+            className="btn btn-secondary btn-sm" 
+            style={{ width: '100%', fontSize: '0.7rem', padding: '0.35rem', justifyContent: 'center' }}
+            onClick={() => document.getElementById('samsung-file-input').click()}
+            disabled={fileUploading}
+          >
+            {fileUploading ? 'Processing File...' : 'Upload step_count JSON/CSV'}
+          </button>
+          <div className="import-instructions" style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '0.35rem', lineHeight: '1.3' }}>
+            Phone: Samsung Health &gt; Settings &gt; Download personal data. Unzip the export and upload the `com.samsung.health.step_count` JSON or CSV file here.
+          </div>
+        </div>
 
         {syncMessage && (
           <div className="sync-feedback-msg">

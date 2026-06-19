@@ -234,6 +234,113 @@ def sync_samsung_steps(data: SamsungSyncSchema, db: Session = Depends(get_db)):
         "goal": log.goal
     }
 
+@app.post("/api/steps/import-samsung-file")
+def import_samsung_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    import json
+    import csv
+    import io
+    
+    user = db.query(User).filter(User.username == "Alex").first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    filename = file.filename.lower()
+    content = file.file.read()
+    
+    daily_steps = {}
+    
+    try:
+        if filename.endswith('.json'):
+            data = json.loads(content.decode('utf-8'))
+            if isinstance(data, list):
+                for record in data:
+                    count = record.get('count')
+                    start_time = record.get('start_time') or record.get('create_time')
+                    if count is not None and start_time:
+                        date_str = start_time.split(' ')[0]
+                        if len(date_str) == 10:
+                            daily_steps[date_str] = daily_steps.get(date_str, 0) + int(count)
+            else:
+                raise HTTPException(status_code=400, detail="Invalid JSON format. Expected list of records.")
+                
+        elif filename.endswith('.csv'):
+            csv_text = content.decode('utf-8')
+            csv_file = io.StringIO(csv_text)
+            reader = csv.DictReader(csv_file)
+            
+            count_col = None
+            time_col = None
+            
+            if reader.fieldnames:
+                for field in reader.fieldnames:
+                    field_lower = field.lower()
+                    if 'count' in field_lower:
+                        count_col = field
+                    if 'start_time' in field_lower or 'create_time' in field_lower:
+                        time_col = field
+            
+            if not count_col or not time_col:
+                csv_file.seek(0)
+                reader = csv.reader(csv_file)
+                header = next(reader)
+                for i, h in enumerate(header):
+                    h_lower = h.lower()
+                    if 'count' in h_lower: count_col = i
+                    if 'start' in h_lower or 'create' in h_lower: time_col = i
+                
+                if count_col is None or time_col is None:
+                    raise HTTPException(status_code=400, detail="Could not identify 'count' or 'start_time' columns in Samsung CSV.")
+                
+                for row in reader:
+                    try:
+                        count = int(row[count_col])
+                        date_str = row[time_col].split(' ')[0]
+                        if len(date_str) == 10:
+                            daily_steps[date_str] = daily_steps.get(date_str, 0) + count
+                    except Exception:
+                        continue
+            else:
+                for row in reader:
+                    try:
+                        count = int(row[count_col])
+                        date_str = row[time_col].split(' ')[0]
+                        if len(date_str) == 10:
+                            daily_steps[date_str] = daily_steps.get(date_str, 0) + count
+                    except Exception:
+                        continue
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file format. Please upload .json or .csv files exported from Samsung Health.")
+            
+        if not daily_steps:
+            raise HTTPException(status_code=400, detail="No step records could be parsed. Check that the file contains 'count' and 'start_time' fields.")
+            
+        imported_count = 0
+        for date_str, steps_count in daily_steps.items():
+            log = db.query(StepLog).filter(StepLog.user_id == user.id, StepLog.date == date_str).first()
+            if log:
+                log.steps = steps_count
+            else:
+                log = StepLog(user_id=user.id, date=date_str, steps=steps_count, goal=10000)
+                db.add(log)
+            imported_count += 1
+            
+        db.commit()
+        
+        today = datetime.date.today().isoformat()
+        today_log = db.query(StepLog).filter(StepLog.user_id == user.id, StepLog.date == today).first()
+        today_steps = today_log.steps if today_log else 0
+        
+        return {
+            "status": "success",
+            "message": f"Successfully imported {imported_count} days of steps from Samsung Health data export!",
+            "imported_days": imported_count,
+            "today_steps": today_steps
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to parse file: {str(e)}")
+
 @app.post("/api/bmi")
 def calculate_bmi(data: BMICalculatorSchema, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == "Alex").first()

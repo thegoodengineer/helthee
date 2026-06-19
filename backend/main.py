@@ -512,6 +512,41 @@ def chat_gpt(data: ChatMessageSchema, db: Session = Depends(get_db)):
         
     return {"reply": reply}
 
+@app.get("/api/competitions/local")
+def get_local_challenges():
+    return [
+        {
+            "id": 101,
+            "title": "Hyrox Championship",
+            "type": "Functional Fitness",
+            "location": "Convention Center (2.5 km away)",
+            "date": "July 12, 2026",
+            "description": "The global fitness race combining 8x 1km running loops and 8 functional workouts (Sled Push, Burpees, Rowing).",
+            "difficulty": "Advanced",
+            "participants_count": 342
+        },
+        {
+            "id": 102,
+            "title": "Ironman 70.3 Regional",
+            "type": "Triathlon",
+            "location": "Lake Marina Park (14.8 km away)",
+            "date": "August 24, 2026",
+            "description": "The ultimate test of endurance: 1.9 km swim, 90 km bike ride, and 21.1 km half-marathon run.",
+            "difficulty": "Extreme",
+            "participants_count": 895
+        },
+        {
+            "id": 103,
+            "title": "Pine Hills Trail Run",
+            "type": "Trail Running",
+            "location": "Pine Hills Forest Reserve (8.2 km away)",
+            "date": "July 28, 2026",
+            "description": "A scenic but rugged 15K trail run through mud paths, steep inclines, and forest tracks.",
+            "difficulty": "Intermediate",
+            "participants_count": 128
+        }
+    ]
+
 @app.get("/api/competitions")
 def get_competitions(username: str = "Alex", db: Session = Depends(get_db)):
     comp = db.query(Competition).first()

@@ -11,6 +11,7 @@ import MealPhoto from './components/MealPhoto';
 import BMICalculator from './components/BMICalculator';
 import StepsCalculator from './components/StepsCalculator';
 import WeeklyReport from './components/WeeklyReport';
+import Account from './components/Account';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -177,6 +178,21 @@ export default function App() {
             <WeeklyReport stats={stats} refreshTrigger={refreshTrigger} username={username} />
           </div>
         );
+      case 'account':
+        return (
+          <div className="focused-module-view">
+            <Account 
+              stats={stats} 
+              username={username} 
+              onUsernameChange={(next) => {
+                setUsername(next);
+                localStorage.setItem('helthee_username', next);
+                triggerRefresh();
+              }} 
+              onRefresh={triggerRefresh} 
+            />
+          </div>
+        );
       default:
         return renderDashboardHub();
     }
@@ -340,13 +356,17 @@ export default function App() {
         </ul>
 
         {stats && (
-          <div className="sidebar-profile cursor-pointer" onClick={handleChangeUsername} title="Click to change your username">
+          <div 
+            className={`sidebar-profile cursor-pointer ${activeTab === 'account' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('account')} 
+            title="Manage your profile settings"
+          >
             <div className="profile-icon">
               <User size={16} />
             </div>
             <div className="profile-details">
               <div className="profile-name">{stats.username}</div>
-              <div className="profile-meta">Link Device ⚙️</div>
+              <div className="profile-meta">Profile Settings ⚙️</div>
             </div>
           </div>
         )}
@@ -364,6 +384,7 @@ export default function App() {
                 {activeTab === 'bmi' && 'Weight & Height BMI Gauges'}
                 {activeTab === 'competitions' && 'Fitness Competitions Leaderboard'}
                 {activeTab === 'report' && 'Weekly Performance Insights'}
+                {activeTab === 'account' && 'Account Settings'}
               </h1>
               <p>
                 {activeTab === 'dashboard' && `Logged in as: ${username}. Select a module to manage habits.`}
@@ -372,6 +393,7 @@ export default function App() {
                 {activeTab === 'bmi' && 'Check weight status index ranges and advice.'}
                 {activeTab === 'competitions' && 'View local standings, step counts, and active brackets.'}
                 {activeTab === 'report' && 'Summary bar charts of steps activity and calorie intake.'}
+                {activeTab === 'account' && 'Manage your personal metrics and synced username profile.'}
               </p>
             </div>
 
@@ -423,16 +445,21 @@ export default function App() {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(0, 0, 0, 0.02);
+          border: 1px solid rgba(0, 0, 0, 0.06);
           padding: 0.75rem 1rem;
           border-radius: 14px;
           margin-top: auto;
           transition: var(--transition-smooth);
         }
         .sidebar-profile:hover {
-          background: rgba(255, 255, 255, 0.06);
-          border-color: rgba(255, 255, 255, 0.15);
+          background: rgba(0, 0, 0, 0.04);
+          border-color: rgba(82, 183, 136, 0.2);
+        }
+        .sidebar-profile.active {
+          background: rgba(82, 183, 136, 0.1);
+          border: 1px solid rgba(82, 183, 136, 0.25);
+          box-shadow: 0 4px 20px rgba(82, 183, 136, 0.05);
         }
         .profile-icon {
           width: 32px;

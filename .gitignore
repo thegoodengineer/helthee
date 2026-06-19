@@ -5,6 +5,7 @@ __pycache__/
 .env
 *.db
 helthee.db
+uploads/
 
 # Frontend node modules and build output
 node_modules/

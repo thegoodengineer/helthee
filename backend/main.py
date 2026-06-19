@@ -569,7 +569,7 @@ def get_meals(username: str = "Alex", db: Session = Depends(get_db)):
 def log_meal(
     meal_name: str = Form(...),
     photo: Optional[UploadFile] = File(None),
-    username: str = "Alex",
+    username: str = Form("Alex"),
     db: Session = Depends(get_db)
 ):
     user = get_or_create_user(db, username)

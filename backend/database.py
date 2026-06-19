@@ -43,6 +43,7 @@ class MealLog(Base):
     protein = Column(Float) # grams
     carbs = Column(Float) # grams
     fat = Column(Float) # grams
+    description = Column(String, nullable=True)
 
 class Competition(Base):
     __tablename__ = "competitions"

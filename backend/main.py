@@ -4,9 +4,13 @@ import math
 import json
 import urllib.request
 import urllib.parse
+import base64
+import time
+import os
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -14,6 +18,20 @@ from backend.database import (
     SessionLocal, init_db, User, StepLog, MealLog, 
     Competition, CompetitionParticipant
 )
+
+# Helper to load .env variables securely
+def load_dotenv():
+    if os.path.exists(".env"):
+        with open(".env", "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, val = line.split("=", 1)
+                    os.environ[key.strip()] = val.strip()
+
+load_dotenv()
 
 # Initialize database
 init_db()
@@ -28,6 +46,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # DB Dependency
 def get_db():
@@ -123,6 +145,75 @@ def get_tree_stage(streak: int) -> str:
         return "Mature Tree"
     else:
         return "Blooming Tree"
+
+def analyze_meal_with_gemini(meal_name: str, photo_bytes: Optional[bytes] = None, mime_type: Optional[str] = None) -> dict:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("Warning: GEMINI_API_KEY environment variable not set.")
+        return {
+            "calories": 350,
+            "protein": 15.0,
+            "carbs": 45.0,
+            "fat": 12.0,
+            "description": f"Estimated nutrition facts for {meal_name}."
+        }
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    
+    prompt = f"""
+    Analyze the following meal:
+    Name: {meal_name}
+    
+    If an image is provided, identify the food in the image and estimate its nutrition details.
+    
+    Return a JSON object with exactly the following keys:
+    - "calories": integer (total calories in kcal)
+    - "protein": float (in grams)
+    - "carbs": float (in grams)
+    - "fat": float (in grams)
+    - "description": string (short description of the meal, estimated portion size, and ingredient breakdown)
+    
+    Do not wrap the JSON in markdown blocks. Return only raw JSON.
+    """
+    
+    parts = [{"text": prompt}]
+    
+    if photo_bytes and mime_type:
+        base64_data = base64.b64encode(photo_bytes).decode("utf-8")
+        parts.append({
+            "inlineData": {
+                "mimeType": mime_type,
+                "data": base64_data
+            }
+        })
+        
+    payload = {
+        "contents": [{"parts": parts}],
+        "generationConfig": {
+            "responseMimeType": "application/json"
+        }
+    }
+    
+    req_data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=req_data,
+        headers={"Content-Type": "application/json"}
+    )
+    
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            res_json = json.loads(response.read().decode("utf-8"))
+            text_response = res_json["candidates"][0]["content"]["parts"][0]["text"]
+            return json.loads(text_response.strip())
+    except Exception as e:
+        print(f"Error calling Gemini API: {e}")
+        return {
+            "calories": 350,
+            "protein": 15.0,
+            "carbs": 45.0,
+            "fat": 12.0,
+            "description": f"Estimated nutrition facts for {meal_name}."
+        }
 
 def get_or_create_user(db: Session, username: str) -> User:
     user = db.query(User).filter(User.username == username).first()
@@ -484,44 +575,33 @@ def log_meal(
     user = get_or_create_user(db, username)
     today = datetime.date.today().isoformat()
     
-    name_lower = meal_name.lower()
-    calories = 300
-    protein = 15.0
-    carbs = 40.0
-    fat = 10.0
-    
-    if "salad" in name_lower or "broccoli" in name_lower or "veg" in name_lower:
-        calories = random.randint(180, 320)
-        protein = round(random.uniform(5, 12), 1)
-        carbs = round(random.uniform(10, 25), 1)
-        fat = round(random.uniform(4, 10), 1)
-    if "chicken" in name_lower or "salmon" in name_lower or "fish" in name_lower or "egg" in name_lower or "steak" in name_lower:
-        calories = random.randint(380, 580)
-        protein = round(random.uniform(30, 45), 1)
-        carbs = round(random.uniform(5, 15), 1)
-        fat = round(random.uniform(12, 22), 1)
-    if "pizza" in name_lower or "burger" in name_lower or "pasta" in name_lower or "sandwich" in name_lower:
-        calories = random.randint(550, 850)
-        protein = round(random.uniform(18, 30), 1)
-        carbs = round(random.uniform(60, 95), 1)
-        fat = round(random.uniform(20, 38), 1)
-    if "oatmeal" in name_lower or "toast" in name_lower or "banana" in name_lower or "fruit" in name_lower:
-        calories = random.randint(250, 450)
-        protein = round(random.uniform(8, 16), 1)
-        carbs = round(random.uniform(45, 65), 1)
-        fat = round(random.uniform(5, 12), 1)
-        
+    photo_bytes = None
+    mime_type = None
     image_url = "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=500"
+    
     if photo:
-        if "chicken" in name_lower or "salmon" in name_lower or "steak" in name_lower:
-            image_url = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500"
-        elif "salad" in name_lower:
-            image_url = "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500"
-        elif "pizza" in name_lower or "pasta" in name_lower:
-            image_url = "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500"
-        else:
-            image_url = "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=500"
+        try:
+            photo_bytes = photo.file.read()
+            mime_type = photo.content_type
             
+            # Save file locally
+            filename = f"{user.username}_{int(time.time())}_{photo.filename}"
+            filepath = os.path.join(UPLOAD_DIR, filename)
+            with open(filepath, "wb") as f:
+                f.write(photo_bytes)
+            image_url = f"http://localhost:8000/uploads/{filename}"
+        except Exception as file_err:
+            print(f"Error handling uploaded photo: {file_err}")
+            
+    # Analyze nutrition values with Gemini API using 2.5-flash
+    analysis = analyze_meal_with_gemini(meal_name, photo_bytes, mime_type)
+    
+    calories = int(analysis.get("calories", 350))
+    protein = float(analysis.get("protein", 15.0))
+    carbs = float(analysis.get("carbs", 45.0))
+    fat = float(analysis.get("fat", 12.0))
+    description = analysis.get("description", f"Estimated nutrition facts for {meal_name}.")
+    
     meal = MealLog(
         user_id=user.id,
         date=today,
@@ -530,7 +610,8 @@ def log_meal(
         calories=calories,
         protein=protein,
         carbs=carbs,
-        fat=fat
+        fat=fat,
+        description=description
     )
     
     db.add(meal)
@@ -545,7 +626,8 @@ def log_meal(
             "calories": meal.calories,
             "protein": meal.protein,
             "carbs": meal.carbs,
-            "fat": meal.fat
+            "fat": meal.fat,
+            "description": meal.description
         }
     }
 

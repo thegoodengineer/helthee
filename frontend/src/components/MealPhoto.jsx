@@ -178,6 +178,11 @@ export default function MealPhoto({ stats, onRefresh, username }) {
                     <span className="dot" />
                     <span>F: {meal.fat}g</span>
                   </div>
+                  {meal.description && (
+                    <p className="meal-desc">
+                      {meal.description}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
@@ -193,14 +198,14 @@ export default function MealPhoto({ stats, onRefresh, username }) {
         .meal-stats-grid {
           display: grid;
           grid-template-columns: 1.2fr 1fr;
-          gap: 1rem;
-          margin-bottom: 1.25rem;
+          gap: 1.5rem;
+          margin-bottom: 1.5rem;
         }
         .calorie-summary-box {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(0, 0, 0, 0.02);
+          border: 1px solid rgba(0, 0, 0, 0.05);
           border-radius: 14px;
-          padding: 1rem;
+          padding: 1.25rem;
         }
         .cal-label {
           font-size: 0.75rem;
@@ -210,7 +215,7 @@ export default function MealPhoto({ stats, onRefresh, username }) {
         }
         .cal-value {
           font-family: var(--font-display);
-          font-size: 1.6rem;
+          font-size: 1.8rem;
           font-weight: 800;
           margin: 0.25rem 0;
         }
@@ -221,14 +226,14 @@ export default function MealPhoto({ stats, onRefresh, username }) {
         }
         .cal-progress {
           height: 6px;
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(0, 0, 0, 0.05);
           border-radius: 10px;
           margin-bottom: 0.4rem;
           overflow: hidden;
         }
         .cal-bar {
           height: 100%;
-          background: var(--accent-emerald);
+          background: var(--accent-cyan);
           border-radius: 10px;
           transition: width 0.5s ease;
         }
@@ -241,45 +246,45 @@ export default function MealPhoto({ stats, onRefresh, username }) {
         .macro-summaries {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.55rem;
         }
         .macro-box {
           display: flex;
           justify-content: space-between;
-          padding: 0.5rem 0.75rem;
-          border-radius: 8px;
-          font-size: 0.8rem;
+          padding: 0.55rem 0.85rem;
+          border-radius: 10px;
+          font-size: 0.85rem;
           font-weight: 700;
         }
         .macro-box.protein {
-          background: rgba(255, 90, 95, 0.1);
-          border: 1px solid rgba(255, 90, 95, 0.25);
-          color: #ff8e91;
+          background: rgba(217, 56, 56, 0.08);
+          border: 1px solid rgba(217, 56, 56, 0.2);
+          color: #c92a2a;
         }
         .macro-box.carbs {
-          background: rgba(255, 209, 102, 0.1);
-          border: 1px solid rgba(255, 209, 102, 0.25);
-          color: #ffe094;
+          background: rgba(181, 141, 29, 0.08);
+          border: 1px solid rgba(181, 141, 29, 0.2);
+          color: #9c6f15;
         }
         .macro-box.fat {
-          background: rgba(0, 245, 212, 0.1);
-          border: 1px solid rgba(0, 245, 212, 0.25);
-          color: #80ffe9;
+          background: rgba(82, 183, 136, 0.08);
+          border: 1px solid rgba(82, 183, 136, 0.2);
+          color: #2d6a4f;
         }
         
         .photo-upload-container {
-          height: 120px;
-          background: rgba(0, 0, 0, 0.15);
-          border: 1px dashed var(--border-card);
-          border-radius: 12px;
+          height: 130px;
+          background: rgba(0, 0, 0, 0.02);
+          border: 1px dashed rgba(0, 0, 0, 0.12);
+          border-radius: 14px;
           overflow: hidden;
           margin-bottom: 0.75rem;
           cursor: pointer;
           transition: var(--transition-smooth);
         }
         .photo-upload-container:hover {
-          border-color: rgba(255, 255, 255, 0.2);
-          background: rgba(255, 255, 255, 0.02);
+          border-color: var(--accent-cyan);
+          background: rgba(82, 183, 136, 0.03);
         }
         .upload-placeholder {
           height: 100%;
@@ -316,7 +321,7 @@ export default function MealPhoto({ stats, onRefresh, username }) {
         .change-photo-overlay {
           position: absolute;
           top: 0; left: 0; width: 100%; height: 100%;
-          background: rgba(0, 0, 0, 0.5);
+          background: rgba(0, 0, 0, 0.4);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -339,18 +344,20 @@ export default function MealPhoto({ stats, onRefresh, username }) {
         }
         .input-group input {
           flex-grow: 1;
-          background: rgba(0, 0, 0, 0.2);
-          border: 1px solid var(--border-card);
+          background: rgba(0, 0, 0, 0.02);
+          border: 1px solid rgba(0, 0, 0, 0.08);
           border-radius: 10px;
-          padding: 0.65rem 0.85rem;
+          padding: 0.65rem 0.9rem;
           font-family: var(--font-primary);
-          font-size: 0.85rem;
-          color: white;
+          font-size: 0.9rem;
+          color: var(--text-primary);
           outline: none;
           transition: var(--transition-smooth);
         }
         .input-group input:focus {
-          border-color: rgba(255, 255, 255, 0.25);
+          border-color: var(--accent-cyan);
+          background: white;
+          box-shadow: 0 0 0 3px rgba(82, 183, 136, 0.15);
         }
         .log-btn {
           flex-shrink: 0;
@@ -371,9 +378,10 @@ export default function MealPhoto({ stats, onRefresh, username }) {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 1.5rem 1rem;
-          background: rgba(255, 255, 255, 0.01);
-          border-radius: 10px;
+          padding: 2rem 1rem;
+          background: rgba(0, 0, 0, 0.01);
+          border: 1px dashed rgba(0, 0, 0, 0.08);
+          border-radius: 12px;
           color: var(--text-muted);
           font-size: 0.8rem;
           gap: 0.4rem;
@@ -381,29 +389,39 @@ export default function MealPhoto({ stats, onRefresh, username }) {
         .meals-list {
           display: flex;
           flex-direction: column;
-          gap: 0.6rem;
-          max-height: 160px;
+          gap: 0.75rem;
+          max-height: 250px;
           overflow-y: auto;
         }
         .meal-item {
           display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          background: rgba(255, 255, 255, 0.01);
-          border: 1px solid rgba(255, 255, 255, 0.04);
-          padding: 0.5rem;
-          border-radius: 10px;
+          align-items: flex-start;
+          gap: 0.85rem;
+          background: rgba(0, 0, 0, 0.02);
+          border: 1px solid rgba(0, 0, 0, 0.04);
+          padding: 0.75rem;
+          border-radius: 12px;
+          transition: var(--transition-smooth);
+        }
+        .meal-item:hover {
+          background: rgba(82, 183, 136, 0.03);
+          border-color: rgba(82, 183, 136, 0.15);
         }
         .meal-img {
-          width: 42px;
-          height: 42px;
-          border-radius: 8px;
+          width: 54px;
+          height: 54px;
+          border-radius: 10px;
           object-fit: cover;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .meal-details {
+          flex-grow: 1;
         }
         .meal-details h5 {
-          font-size: 0.85rem;
-          font-weight: 600;
-          margin-bottom: 0.15rem;
+          font-size: 0.95rem;
+          font-weight: 700;
+          margin-bottom: 0.2rem;
+          color: var(--text-primary);
         }
         .meal-macros {
           display: flex;
@@ -411,12 +429,20 @@ export default function MealPhoto({ stats, onRefresh, username }) {
           gap: 0.4rem;
           font-size: 0.75rem;
           color: var(--text-secondary);
+          font-weight: 600;
         }
         .meal-macros .dot {
           width: 3px;
           height: 3px;
           border-radius: 50%;
           background-color: var(--text-muted);
+        }
+        .meal-desc {
+          margin-top: 0.35rem;
+          line-height: 1.4;
+          font-size: 0.8rem;
+          color: var(--text-secondary);
+          font-style: italic;
         }
         
         .animate-spin {

@@ -56,6 +56,21 @@ export default function App() {
     }
   };
 
+  // Cross-origin single sign-on message broadcaster
+  const handleIframeLoad = (e) => {
+    try {
+      const iframeWindow = e.target.contentWindow;
+      // Post authentication context payload
+      iframeWindow.postMessage({
+        type: 'HELTHEE_LOGIN',
+        username: username,
+        source: 'helthee-dashboard'
+      }, '*');
+    } catch (err) {
+      console.warn("Iframe cross-origin postMessage warning (safe to ignore):", err);
+    }
+  };
+
   const renderActiveView = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -69,18 +84,20 @@ export default function App() {
                 <span className="iframe-title-text">Bloomify Habit Tracker</span>
               </div>
               <a 
-                href="https://kazim-45.github.io/bloomify-habit-tracker" 
+                href={`https://kazim-45.github.io/bloomify-habit-tracker?username=${username}`} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="iframe-link-btn"
+                style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem' }}
               >
                 Open in New Tab ↗
               </a>
             </div>
             <iframe 
-              src="https://kazim-45.github.io/bloomify-habit-tracker" 
+              src={`https://kazim-45.github.io/bloomify-habit-tracker?username=${username}`}
               title="Bloomify Habit Tracker"
               className="module-iframe"
+              onLoad={handleIframeLoad}
             />
           </div>
         );
@@ -105,18 +122,20 @@ export default function App() {
                 <span className="iframe-title-text">HelpGPT Health Coach</span>
               </div>
               <a 
-                href="https://helpgpt-frontend.vercel.app/" 
+                href={`https://helpgpt-frontend.vercel.app/?username=${username}`}
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="iframe-link-btn"
+                style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem' }}
               >
                 Open in New Tab ↗
               </a>
             </div>
             <iframe 
-              src="https://helpgpt-frontend.vercel.app/" 
+              src={`https://helpgpt-frontend.vercel.app/?username=${username}`}
               title="HelpGPT External App"
               className="module-iframe"
+              onLoad={handleIframeLoad}
             />
           </div>
         );

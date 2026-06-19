@@ -109,8 +109,28 @@ export default function App() {
         );
       case 'competitions':
         return (
-          <div className="focused-module-view">
-            <Competitions stats={stats} onRefresh={triggerRefresh} username={username} />
+          <div className="focused-iframe-view">
+            <div className="iframe-top-bar">
+              <div className="iframe-title-meta">
+                <Trophy size={14} color="var(--accent-emerald)" />
+                <span className="iframe-title-text">Townscript Competitions</span>
+              </div>
+              <a 
+                href="https://www.townscript.com/in/bengaluru/sports-fitness"
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="iframe-link-btn"
+                style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem' }}
+              >
+                Open in New Tab ↗
+              </a>
+            </div>
+            <iframe 
+              src="https://www.townscript.com/in/bengaluru/sports-fitness"
+              title="Townscript Competitions"
+              className="module-iframe"
+              onLoad={handleIframeLoad}
+            />
           </div>
         );
       case 'chat':

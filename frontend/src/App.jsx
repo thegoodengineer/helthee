@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Flame, Footprints, Bot, Utensils, 
-  Activity, Award, User, RefreshCw, AlertCircle, Trophy, Sparkles, Settings
+  Activity, Award, User, RefreshCw, AlertCircle, Trophy, Sparkles, Settings, Droplet
 } from 'lucide-react';
 
 import StreakTree from './components/StreakTree';
@@ -22,6 +22,24 @@ export default function App() {
 
   // Dynamic user profile pairing
   const [username, setUsername] = useState(localStorage.getItem('helthee_username') || 'Alex');
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [waterCups, setWaterCups] = useState(() => {
+    const key = `helthee_water_${username}_${todayStr}`;
+    return parseInt(localStorage.getItem(key) || '0', 10);
+  });
+
+  useEffect(() => {
+    const key = `helthee_water_${username}_${todayStr}`;
+    setWaterCups(parseInt(localStorage.getItem(key) || '0', 10));
+  }, [username]);
+
+  const handleWaterClick = (count) => {
+    const key = `helthee_water_${username}_${todayStr}`;
+    const newCount = waterCups === count ? count - 1 : count;
+    setWaterCups(newCount);
+    localStorage.setItem(key, newCount.toString());
+  };
 
   const fetchStats = async () => {
     try {
@@ -257,7 +275,7 @@ export default function App() {
         </div>
 
         {/* Competitions Standing Card */}
-        <div className="glass-card hub-card cursor-pointer" onClick={() => setActiveTab('competitions')} style={{ gridColumn: 'span 6' }}>
+        <div className="glass-card hub-card cursor-pointer" onClick={() => setActiveTab('competitions')} style={{ gridColumn: 'span 4' }}>
           <div className="hub-card-header">
             <Trophy size={20} color="#ffd166" />
             <span className="hub-title">Active Challenges</span>
@@ -270,7 +288,7 @@ export default function App() {
         </div>
 
         {/* HelpGPT Prompt Box Card */}
-        <div className="glass-card hub-card cursor-pointer" onClick={() => setActiveTab('chat')} style={{ gridColumn: 'span 6' }}>
+        <div className="glass-card hub-card cursor-pointer" onClick={() => setActiveTab('chat')} style={{ gridColumn: 'span 4' }}>
           <div className="hub-card-header">
             <Bot size={20} color="var(--accent-cyan)" />
             <span className="hub-title">HelpGPT Coach</span>
@@ -280,6 +298,37 @@ export default function App() {
             <p>Chat with HelpGPT to get smart food recipes, workout plans, and health tips.</p>
           </div>
           <div className="hub-tap-hint" style={{ marginTop: 'auto' }}>Open HelpGPT External App →</div>
+        </div>
+
+        {/* Water Progress Card */}
+        <div className="glass-card hub-card water-card" style={{ gridColumn: 'span 4' }}>
+          <div className="hub-card-header">
+            <Droplet size={20} color="#4eaddd" className="droplet-icon" />
+            <span className="hub-title">Water Tracker</span>
+          </div>
+          <div className="hub-text-detail" style={{ margin: '0.2rem 0' }}>
+            <h3>Hydration Goal</h3>
+            <p>Log your daily water intake to maintain cellular energy levels.</p>
+          </div>
+          <div className="water-cups-grid">
+            {[...Array(8)].map((_, i) => (
+              <button 
+                key={i} 
+                className={`water-cup-btn ${i < waterCups ? 'active' : ''}`}
+                onClick={() => handleWaterClick(i + 1)}
+                title={`Log ${i + 1} cups of water`}
+              >
+                <Droplet 
+                  size={16} 
+                  fill={i < waterCups ? '#4eaddd' : 'transparent'} 
+                  color={i < waterCups ? '#4eaddd' : 'var(--text-secondary)'} 
+                />
+              </button>
+            ))}
+          </div>
+          <div className="hub-tap-hint" style={{ marginTop: 'auto' }}>
+            {waterCups} / 8 cups logged today
+          </div>
         </div>
       </div>
     );
@@ -643,6 +692,32 @@ export default function App() {
           line-height: 1.4;
         }
         
+        /* Water Tracker CSS */
+        .water-cups-grid {
+          display: flex;
+          gap: 0.35rem;
+          margin: 0.35rem 0;
+          align-items: center;
+        }
+        .water-cup-btn {
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          padding: 0.2rem;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: var(--transition-smooth);
+        }
+        .water-cup-btn:hover {
+          transform: scale(1.3);
+          background: rgba(78, 173, 221, 0.08);
+        }
+        .water-cup-btn.active:hover {
+          background: rgba(78, 173, 221, 0.15);
+        }
+
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(5px); }
           to { opacity: 1; transform: translateY(0); }

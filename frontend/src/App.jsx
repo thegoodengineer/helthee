@@ -23,6 +23,15 @@ export default function App() {
   // Dynamic user profile pairing
   const [username, setUsername] = useState(localStorage.getItem('helthee_username') || 'Alex');
 
+  const [mealViewMode, setMealViewMode] = useState(() => {
+    return localStorage.getItem('helthee_meal_view') || 'pixcalo';
+  });
+
+  const handleMealViewChange = (mode) => {
+    setMealViewMode(mode);
+    localStorage.setItem('helthee_meal_view', mode);
+  };
+
   const todayStr = new Date().toISOString().split('T')[0];
   const [waterCups, setWaterCups] = useState(() => {
     const key = `helthee_water_${username}_${todayStr}`;
@@ -112,12 +121,14 @@ export default function App() {
                 Open in New Tab ↗
               </a>
             </div>
-            <iframe 
-              src={`https://kazim-45.github.io/bloomify-habit-tracker?username=${username}`}
-              title="Bloomify Habit Tracker"
-              className="module-iframe"
-              onLoad={handleIframeLoad}
-            />
+            <div className="iframe-wrapper">
+              <iframe 
+                src={`https://kazim-45.github.io/bloomify-habit-tracker?username=${username}`}
+                title="Bloomify Habit Tracker"
+                className="module-iframe clip-bloomify"
+                onLoad={handleIframeLoad}
+              />
+            </div>
           </div>
         );
       case 'steps':
@@ -144,12 +155,14 @@ export default function App() {
                 Open in New Tab ↗
               </a>
             </div>
-            <iframe 
-              src="https://www.townscript.com/in/bengaluru/sports-fitness"
-              title="Townscript Competitions"
-              className="module-iframe"
-              onLoad={handleIframeLoad}
-            />
+            <div className="iframe-wrapper">
+              <iframe 
+                src="https://www.townscript.com/in/bengaluru/sports-fitness"
+                title="Townscript Competitions"
+                className="module-iframe clip-townscript"
+                onLoad={handleIframeLoad}
+              />
+            </div>
           </div>
         );
       case 'chat':
@@ -170,18 +183,71 @@ export default function App() {
                 Open in New Tab ↗
               </a>
             </div>
-            <iframe 
-              src={`https://helpgpt-frontend.vercel.app/?username=${username}`}
-              title="HelpGPT External App"
-              className="module-iframe"
-              onLoad={handleIframeLoad}
-            />
+            <div className="iframe-wrapper">
+              <iframe 
+                src={`https://helpgpt-frontend.vercel.app/?username=${username}`}
+                title="HelpGPT External App"
+                className="module-iframe clip-chat"
+                onLoad={handleIframeLoad}
+              />
+            </div>
           </div>
         );
       case 'meals':
         return (
-          <div className="focused-module-view">
-            <MealPhoto stats={stats} onRefresh={triggerRefresh} username={username} />
+          <div className="focused-iframe-view">
+            <div className="iframe-top-bar">
+              <div className="iframe-title-meta">
+                <Utensils size={14} color="var(--accent-emerald)" />
+                <span className="iframe-title-text">Meal Photo Log</span>
+              </div>
+              
+              <div className="meals-toggle-pills">
+                <button 
+                  className={`toggle-pill-btn ${mealViewMode === 'pixcalo' ? 'active' : ''}`}
+                  onClick={() => handleMealViewChange('pixcalo')}
+                >
+                  Pixcalo Recognition
+                </button>
+                <button 
+                  className={`toggle-pill-btn ${mealViewMode === 'local' ? 'active' : ''}`}
+                  onClick={() => handleMealViewChange('local')}
+                >
+                  Gemini AI Logger
+                </button>
+              </div>
+
+              <div style={{ minWidth: '120px', display: 'flex', justifyContent: 'flex-end' }}>
+                {mealViewMode === 'pixcalo' && (
+                  <a 
+                    href="https://pixcalo.com/food-recognition" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="iframe-link-btn"
+                    style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem' }}
+                  >
+                    Open in New Tab ↗
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {mealViewMode === 'pixcalo' ? (
+              <div className="iframe-wrapper">
+                <iframe 
+                  src="https://pixcalo.com/food-recognition"
+                  title="Pixcalo Food Recognition"
+                  className="module-iframe clip-pixcalo"
+                  onLoad={handleIframeLoad}
+                />
+              </div>
+            ) : (
+              <div className="meals-scroll-container">
+                <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                  <MealPhoto stats={stats} onRefresh={triggerRefresh} username={username} />
+                </div>
+              </div>
+            )}
           </div>
         );
       case 'bmi':
@@ -334,7 +400,7 @@ export default function App() {
     );
   };
 
-  const isIframeTab = activeTab === 'tree' || activeTab === 'chat';
+  const isIframeTab = activeTab === 'tree' || activeTab === 'chat' || activeTab === 'competitions' || activeTab === 'meals';
 
   return (
     <div className="app-container">
@@ -613,11 +679,70 @@ export default function App() {
           color: white;
           text-shadow: 0 0 8px var(--accent-cyan-glow);
         }
-        .module-iframe {
+        .iframe-wrapper {
           width: 100%;
           height: calc(100% - 48px);
-          border: none;
+          overflow: hidden;
+          position: relative;
+          background: #ffffff;
           flex-grow: 1;
+        }
+        .module-iframe {
+          width: 100%;
+          height: 100%;
+          border: none;
+          display: block;
+        }
+        .clip-bloomify {
+          margin-top: -65px;
+          height: calc(100% + 65px);
+        }
+        .clip-townscript {
+          margin-top: -68px;
+          height: calc(100% + 68px);
+        }
+        .clip-chat {
+          margin-top: -60px;
+          height: calc(100% + 60px);
+        }
+        .clip-pixcalo {
+          margin-top: -60px;
+          height: calc(100% + 60px);
+        }
+        .meals-toggle-pills {
+          display: flex;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 20px;
+          padding: 2px;
+          gap: 2px;
+        }
+        .toggle-pill-btn {
+          background: transparent;
+          border: none;
+          color: rgba(255, 255, 255, 0.6);
+          font-family: 'Times New Roman', Times, serif;
+          font-size: 0.75rem;
+          font-weight: 700;
+          padding: 0.25rem 0.75rem;
+          border-radius: 15px;
+          cursor: pointer;
+          transition: var(--transition-smooth);
+        }
+        .toggle-pill-btn:hover {
+          color: white;
+        }
+        .toggle-pill-btn.active {
+          background: var(--accent-emerald);
+          color: white;
+          box-shadow: 0 2px 8px rgba(82, 183, 136, 0.3);
+        }
+        .meals-scroll-container {
+          width: 100%;
+          height: calc(100% - 48px);
+          overflow-y: auto;
+          padding: 2.5rem;
+          background: var(--bg-dark);
         }
         
         /* Hub Cards Grid */

@@ -94,6 +94,8 @@ class StepLogSchema(BaseModel):
 class BMICalculatorSchema(BaseModel):
     height: float # cm
     weight: float # kg
+    age: Optional[int] = 28
+    gender: Optional[str] = "male"
 
 class ChatMessageSchema(BaseModel):
     message: str
@@ -132,6 +134,8 @@ def get_or_create_user(db: Session, username: str) -> User:
             max_streak=0, 
             height=175.0, 
             weight=70.0,
+            age=28,
+            gender="male",
             last_active_date=None
         )
         db.add(user)
@@ -165,6 +169,8 @@ def get_dashboard(username: str = "Alex", db: Session = Depends(get_db)):
         "tree_stage": get_tree_stage(user.current_streak),
         "height": user.height,
         "weight": user.weight,
+        "age": user.age,
+        "gender": user.gender,
         "today_steps": today_steps_count,
         "steps_goal": today_goal,
         "today_calories": today_calories,
@@ -428,6 +434,10 @@ def calculate_bmi(data: BMICalculatorSchema, username: str = "Alex", db: Session
     user = get_or_create_user(db, username)
     user.height = data.height
     user.weight = data.weight
+    if data.age is not None:
+        user.age = data.age
+    if data.gender is not None:
+        user.gender = data.gender
     db.commit()
     
     height_m = data.height / 100
@@ -452,7 +462,9 @@ def calculate_bmi(data: BMICalculatorSchema, username: str = "Alex", db: Session
         "category": category,
         "advice": advice,
         "height": data.height,
-        "weight": data.weight
+        "weight": data.weight,
+        "age": user.age,
+        "gender": user.gender
     }
 
 @app.get("/api/meals")

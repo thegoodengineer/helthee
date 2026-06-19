@@ -19,6 +19,8 @@ class User(Base):
     last_active_date = Column(String, nullable=True) # YYYY-MM-DD
     height = Column(Float, default=175.0) # in cm
     weight = Column(Float, default=70.0) # in kg
+    age = Column(Integer, default=28)
+    gender = Column(String, default="male")
 
 class StepLog(Base):
     __tablename__ = "step_logs"
@@ -70,14 +72,14 @@ def init_db():
     try:
         if not db.query(User).first():
             # Seed main user
-            main_user = User(username="Alex", current_streak=5, max_streak=12, last_active_date=datetime.date.today().isoformat(), height=178.0, weight=75.0)
+            main_user = User(username="Alex", current_streak=5, max_streak=12, last_active_date=datetime.date.today().isoformat(), height=178.0, weight=75.0, age=28, gender="male")
             db.add(main_user)
             
             # Seed other users for competition leaderboard
             users = [
-                User(username="Sarah", current_streak=8, max_streak=20, last_active_date=datetime.date.today().isoformat(), height=165.0, weight=58.0),
-                User(username="Michael", current_streak=3, max_streak=8, last_active_date=datetime.date.today().isoformat(), height=182.0, weight=88.0),
-                User(username="Emma", current_streak=14, max_streak=30, last_active_date=datetime.date.today().isoformat(), height=168.0, weight=60.0),
+                User(username="Sarah", current_streak=8, max_streak=20, last_active_date=datetime.date.today().isoformat(), height=165.0, weight=58.0, age=26, gender="female"),
+                User(username="Michael", current_streak=3, max_streak=8, last_active_date=datetime.date.today().isoformat(), height=182.0, weight=88.0, age=32, gender="male"),
+                User(username="Emma", current_streak=14, max_streak=30, last_active_date=datetime.date.today().isoformat(), height=168.0, weight=60.0, age=29, gender="female"),
             ]
             for u in users:
                 db.add(u)

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Flame, Footprints, Bot, Utensils, 
-  Activity, Award, User, RefreshCw, AlertCircle, Trophy, Sparkles
+  Activity, Award, User, RefreshCw, AlertCircle, Trophy, Sparkles, Settings
 } from 'lucide-react';
 
 import StreakTree from './components/StreakTree';
@@ -361,12 +361,15 @@ export default function App() {
             onClick={() => setActiveTab('account')} 
             title="Manage your profile settings"
           >
-            <div className="profile-icon">
-              <User size={16} />
+            <div className="profile-avatar">
+              {stats.username ? stats.username[0].toUpperCase() : 'U'}
             </div>
             <div className="profile-details">
               <div className="profile-name">{stats.username}</div>
-              <div className="profile-meta">Profile Settings ⚙️</div>
+              <div className="profile-meta">
+                <span>Profile Settings</span>
+                <Settings size={12} className="settings-cog" />
+              </div>
             </div>
           </div>
         )}
@@ -461,15 +464,19 @@ export default function App() {
           border: 1px solid rgba(82, 183, 136, 0.25);
           box-shadow: 0 4px 20px rgba(82, 183, 136, 0.05);
         }
-        .profile-icon {
-          width: 32px;
-          height: 32px;
+        .profile-avatar {
+          width: 34px;
+          height: 34px;
           border-radius: 50%;
-          background: rgba(157, 78, 221, 0.15);
-          color: var(--accent-purple);
+          background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+          color: white;
+          font-weight: 800;
+          font-size: 0.95rem;
           display: flex;
           align-items: center;
           justify-content: center;
+          box-shadow: 0 2px 8px rgba(82, 183, 136, 0.25);
+          border: 2px solid white;
         }
         .profile-name {
           font-size: 0.85rem;
@@ -479,6 +486,17 @@ export default function App() {
           font-size: 0.7rem;
           color: var(--text-muted);
           font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+        .settings-cog {
+          transition: transform 0.6s ease;
+          color: var(--text-muted);
+        }
+        .sidebar-profile:hover .settings-cog {
+          transform: rotate(180deg);
+          color: var(--accent-cyan);
         }
         .loading-state {
           display: flex;

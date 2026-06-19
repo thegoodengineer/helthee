@@ -32,9 +32,14 @@ export default function Competitions({ stats, onRefresh, username }) {
     try {
       const res = await fetch('http://localhost:8000/api/competitions/local');
       const data = await res.json();
-      setLocalChallenges(data);
+      if (Array.isArray(data)) {
+        setLocalChallenges(data);
+      } else {
+        setLocalChallenges([]);
+      }
     } catch (err) {
       console.error("Error loading local challenges:", err);
+      setLocalChallenges([]);
     }
   };
 
@@ -79,9 +84,8 @@ export default function Competitions({ stats, onRefresh, username }) {
         </div>
       </div>
 
-      {competition ? (
-        <div className="active-competition">
-          {/* Main Leaderboard Section */}
+      <div className="active-competition">
+        {competition ? (
           <div className="leaderboard-section">
             <div className="section-title">
               <Trophy size={18} color="#ffd166" />
@@ -120,8 +124,16 @@ export default function Competitions({ stats, onRefresh, username }) {
               })}
             </div>
           </div>
+        ) : (
+          <div className="empty-competitions">
+            <Trophy size={48} className="empty-icon" />
+            <h3>No Active Competitions</h3>
+            <p>Join or create a challenge to start competing with your friends.</p>
+          </div>
+        )}
 
-          {/* Local Challenges Section */}
+        {/* Local Challenges Section */}
+        {localChallenges && localChallenges.length > 0 && (
           <div className="local-challenges-section">
             <div className="section-title">
               <MapPin size={18} color="var(--accent-cyan)" />
@@ -176,14 +188,8 @@ export default function Competitions({ stats, onRefresh, username }) {
               })}
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="empty-competitions">
-          <Trophy size={48} className="empty-icon" />
-          <h3>No Active Competitions</h3>
-          <p>Join or create a challenge to start competing with your friends.</p>
-        </div>
-      )}
+        )}
+      </div>
 
       {notification && (
         <div className="toast-notification">

@@ -63,14 +63,16 @@ export default function App() {
       case 'tree':
         return (
           <div className="focused-iframe-view">
-            <div className="iframe-header">
-              <span className="iframe-source">Source: Bloomify Habit Tracker</span>
+            <div className="iframe-top-bar">
+              <div className="iframe-title-meta">
+                <Flame size={14} color="var(--accent-purple)" />
+                <span className="iframe-title-text">Bloomify Habit Tracker</span>
+              </div>
               <a 
                 href="https://kazim-45.github.io/bloomify-habit-tracker" 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="btn btn-secondary btn-sm"
-                style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem' }}
+                className="iframe-link-btn"
               >
                 Open in New Tab ↗
               </a>
@@ -97,14 +99,16 @@ export default function App() {
       case 'chat':
         return (
           <div className="focused-iframe-view">
-            <div className="iframe-header">
-              <span className="iframe-source">Source: HelpGPT External App</span>
+            <div className="iframe-top-bar">
+              <div className="iframe-title-meta">
+                <Bot size={14} color="var(--accent-cyan)" />
+                <span className="iframe-title-text">HelpGPT Health Coach</span>
+              </div>
               <a 
                 href="https://helpgpt-frontend.vercel.app/" 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="btn btn-secondary btn-sm"
-                style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem' }}
+                className="iframe-link-btn"
               >
                 Open in New Tab ↗
               </a>
@@ -226,6 +230,8 @@ export default function App() {
     );
   };
 
+  const isIframeTab = activeTab === 'tree' || activeTab === 'chat';
+
   return (
     <div className="app-container">
       {/* Sidebar Navigation */}
@@ -308,45 +314,43 @@ export default function App() {
       </aside>
 
       {/* Main Panel Content */}
-      <main className="main-content">
-        <header className="dashboard-header">
-          <div className="dashboard-title">
-            <h1>
-              {activeTab === 'dashboard' && 'Helthee Hub'}
-              {activeTab === 'tree' && 'Streak Tree Habit Log'}
-              {activeTab === 'steps' && 'Daily Steps Calculator'}
-              {activeTab === 'meals' && 'Meal Photo Logger'}
-              {activeTab === 'bmi' && 'Weight & Height BMI Gauges'}
-              {activeTab === 'competitions' && 'Fitness Competitions Leaderboard'}
-              {activeTab === 'chat' && 'HelpGPT Fitness Coach'}
-              {activeTab === 'report' && 'Weekly Performance Insights'}
-            </h1>
-            <p>
-              {activeTab === 'dashboard' && `Logged in as: ${username}. Select a module to manage habits.`}
-              {activeTab === 'tree' && 'Build consistency, water your streak tree daily, and hit goals.'}
-              {activeTab === 'steps' && 'Log steps, count calories burned, and check active metrics.'}
-              {activeTab === 'meals' && 'Log calorie counts, estimate carbs/fat/protein ratios.'}
-              {activeTab === 'bmi' && 'Check weight status index ranges and advice.'}
-              {activeTab === 'competitions' && 'View local standings, step counts, and active brackets.'}
-              {activeTab === 'chat' && 'Get health tips, menu suggestions, and exercise ideas.'}
-              {activeTab === 'report' && 'Summary bar charts of steps activity and calorie intake.'}
-            </p>
-          </div>
+      <main className={`main-content ${isIframeTab ? 'no-padding' : ''}`}>
+        {!isIframeTab && (
+          <header className="dashboard-header">
+            <div className="dashboard-title">
+              <h1>
+                {activeTab === 'dashboard' && 'Helthee Hub'}
+                {activeTab === 'steps' && 'Daily Steps Calculator'}
+                {activeTab === 'meals' && 'Meal Photo Logger'}
+                {activeTab === 'bmi' && 'Weight & Height BMI Gauges'}
+                {activeTab === 'competitions' && 'Fitness Competitions Leaderboard'}
+                {activeTab === 'report' && 'Weekly Performance Insights'}
+              </h1>
+              <p>
+                {activeTab === 'dashboard' && `Logged in as: ${username}. Select a module to manage habits.`}
+                {activeTab === 'steps' && 'Log steps, count calories burned, and check active metrics.'}
+                {activeTab === 'meals' && 'Log calorie counts, estimate carbs/fat/protein ratios.'}
+                {activeTab === 'bmi' && 'Check weight status index ranges and advice.'}
+                {activeTab === 'competitions' && 'View local standings, step counts, and active brackets.'}
+                {activeTab === 'report' && 'Summary bar charts of steps activity and calorie intake.'}
+              </p>
+            </div>
 
-          <div className="header-actions">
-            {error && (
-              <div className="error-toast">
-                <AlertCircle size={16} />
-                <span>Backend Offline. Run python server!</span>
-              </div>
-            )}
-            
-            <button className="btn btn-secondary" onClick={triggerRefresh} disabled={loading}>
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              <span>Refresh</span>
-            </button>
-          </div>
-        </header>
+            <div className="header-actions">
+              {error && (
+                <div className="error-toast">
+                  <AlertCircle size={16} />
+                  <span>Backend Offline. Run python server!</span>
+                </div>
+              )}
+              
+              <button className="btn btn-secondary" onClick={triggerRefresh} disabled={loading}>
+                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                <span>Refresh</span>
+              </button>
+            </div>
+          </header>
+        )}
 
         {loading && !stats ? (
           <div className="loading-state">
@@ -429,36 +433,58 @@ export default function App() {
         }
         
         /* Iframe panel layout */
+        .main-content.no-padding {
+          padding: 0;
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
         .focused-iframe-view {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
           width: 100%;
-          height: calc(100vh - 200px);
-          min-height: 550px;
+          height: 100%;
+          flex-grow: 1;
           animation: fadeIn 0.4s ease-out;
         }
-        .iframe-header {
+        .iframe-top-bar {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid var(--border-card);
-          padding: 0.5rem 1rem;
-          border-radius: 10px;
+          background: rgba(10, 16, 36, 0.8);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          padding: 0.5rem 1.5rem;
+          height: 48px;
+          flex-shrink: 0;
+          backdrop-filter: var(--glass-blur);
         }
-        .iframe-source {
-          font-size: 0.75rem;
+        .iframe-title-meta {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+        .iframe-title-text {
+          font-size: 0.8rem;
           font-weight: 700;
-          color: var(--text-secondary);
+          color: var(--text-primary);
+        }
+        .iframe-link-btn {
+          color: var(--accent-cyan);
+          text-decoration: none;
+          font-size: 0.75rem;
+          font-weight: 600;
+          transition: var(--transition-smooth);
+        }
+        .iframe-link-btn:hover {
+          color: white;
+          text-shadow: 0 0 8px var(--accent-cyan-glow);
         }
         .module-iframe {
-          flex-grow: 1;
           width: 100%;
-          height: 100%;
-          border: 1px solid var(--border-card);
-          border-radius: 16px;
-          background: #ffffff;
+          height: calc(100% - 48px);
+          border: none;
+          flex-grow: 1;
         }
         
         /* Hub Cards Grid */

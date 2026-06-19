@@ -192,6 +192,48 @@ def log_steps(data: StepLogSchema, db: Session = Depends(get_db)):
             
     return {"status": "success", "date": data.date, "steps": log.steps, "goal": log.goal}
 
+class SamsungSyncSchema(BaseModel):
+    steps: int
+    date: str
+    device_id: str
+
+@app.post("/api/steps/samsung-sync")
+def sync_samsung_steps(data: SamsungSyncSchema, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == "Alex").first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    log = db.query(StepLog).filter(StepLog.user_id == user.id, StepLog.date == data.date).first()
+    
+    if log:
+        diff = data.steps - log.steps
+        log.steps = data.steps
+    else:
+        diff = data.steps
+        log = StepLog(user_id=user.id, date=data.date, steps=data.steps, goal=10000)
+        db.add(log)
+        
+    db.commit()
+    
+    active_comp = db.query(Competition).first()
+    if active_comp and diff > 0:
+        participant = db.query(CompetitionParticipant).filter(
+            CompetitionParticipant.competition_id == active_comp.id,
+            CompetitionParticipant.user_id == user.id
+        ).first()
+        if participant:
+            participant.steps_logged += diff
+            db.commit()
+            
+    return {
+        "status": "success", 
+        "source": "Samsung Health Integration",
+        "device_id": data.device_id,
+        "date": data.date, 
+        "steps": log.steps, 
+        "goal": log.goal
+    }
+
 @app.post("/api/bmi")
 def calculate_bmi(data: BMICalculatorSchema, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == "Alex").first()

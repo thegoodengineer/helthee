@@ -259,7 +259,17 @@ export default function Competitions({ stats, onRefresh, username }) {
                 const isJoined = joinedLocal[challenge.id];
                 
                 return (
-                  <div key={challenge.id} className={`local-challenge-card ${isJoined ? 'joined' : ''}`}>
+                  <div 
+                    key={challenge.id} 
+                    className={`local-challenge-card ${isJoined ? 'joined' : ''}`}
+                    onClick={() => {
+                      if (challenge.registration_url) {
+                        window.open(challenge.registration_url, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                    style={{ cursor: 'pointer' }}
+                    title={`Click to register for ${challenge.title}`}
+                  >
                     <div className="challenge-card-header">
                       <span className={`diff-badge ${getDifficultyColorClass(challenge.difficulty)}`}>
                         {challenge.difficulty}
@@ -286,7 +296,13 @@ export default function Competitions({ stats, onRefresh, username }) {
 
                     <button 
                       className={`btn btn-sm action-btn ${isJoined ? 'btn-secondary' : 'btn-accent'}`}
-                      onClick={() => handleToggleLocalJoin(challenge.id, challenge.title)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent card onClick from firing
+                        handleToggleLocalJoin(challenge.id, challenge.title);
+                        if (challenge.registration_url) {
+                          window.open(challenge.registration_url, '_blank', 'noopener,noreferrer');
+                        }
+                      }}
                     >
                       {isJoined ? (
                         <>

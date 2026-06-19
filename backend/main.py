@@ -668,7 +668,8 @@ def get_local_challenges(city: Optional[str] = None, lat: Optional[float] = None
                 "date": "July 12, 2026",
                 "description": "The global fitness race combining 8x 1km running loops and 8 functional workouts (Sled Push, Burpees, Rowing).",
                 "difficulty": "Advanced",
-                "participants_count": 342
+                "participants_count": 342,
+                "registration_url": "https://hyrox.com/"
             },
             {
                 "id": 102,
@@ -678,7 +679,8 @@ def get_local_challenges(city: Optional[str] = None, lat: Optional[float] = None
                 "date": "August 24, 2026",
                 "description": "The ultimate test of endurance: 1.9 km swim, 90 km bike ride, and 21.1 km half-marathon run.",
                 "difficulty": "Extreme",
-                "participants_count": 895
+                "participants_count": 895,
+                "registration_url": "https://www.ironman.com/"
             },
             {
                 "id": 103,
@@ -688,7 +690,8 @@ def get_local_challenges(city: Optional[str] = None, lat: Optional[float] = None
                 "date": "July 28, 2026",
                 "description": "A scenic but rugged 15K trail run through mud paths, steep inclines, and forest tracks.",
                 "difficulty": "Intermediate",
-                "participants_count": 128
+                "participants_count": 128,
+                "registration_url": "https://www.active.com/running"
             }
         ]
     }

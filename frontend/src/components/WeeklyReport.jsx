@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Award, CheckCircle, Lock, TrendingUp, BarChart3, HelpCircle } from 'lucide-react';
 
-export default function WeeklyReport({ stats, refreshTrigger }) {
+export default function WeeklyReport({ stats, refreshTrigger, username }) {
   const [report, setReport] = useState(null);
   const [chartMode, setChartMode] = useState('steps'); // 'steps' or 'calories'
 
   useEffect(() => {
     fetchWeeklyReport();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, username]);
 
   const fetchWeeklyReport = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/weekly-report');
+      const res = await fetch(`http://localhost:8000/api/weekly-report?username=${username}`);
       const data = await res.json();
       setReport(data);
     } catch (err) {

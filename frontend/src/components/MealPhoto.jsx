@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Plus, PlusCircle, Check, Loader2, Utensils } from 'lucide-react';
 
-export default function MealPhoto({ stats, onRefresh }) {
+export default function MealPhoto({ stats, onRefresh, username }) {
   const [meals, setMeals] = useState([]);
   const [mealName, setMealName] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -11,11 +11,11 @@ export default function MealPhoto({ stats, onRefresh }) {
 
   useEffect(() => {
     fetchMeals();
-  }, []);
+  }, [username]);
 
   const fetchMeals = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/meals');
+      const res = await fetch(`http://localhost:8000/api/meals?username=${username}`);
       const data = await res.json();
       setMeals(data);
     } catch (err) {
@@ -38,6 +38,7 @@ export default function MealPhoto({ stats, onRefresh }) {
     setUploading(true);
     const formData = new FormData();
     formData.append('meal_name', mealName);
+    formData.append('username', username);
     if (selectedFile) {
       formData.append('photo', selectedFile);
     }

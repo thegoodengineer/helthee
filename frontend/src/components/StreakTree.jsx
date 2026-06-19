@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Flame, Droplet, Sparkles, CheckCircle2 } from 'lucide-react';
 
-export default function StreakTree({ stats, onRefresh }) {
+export default function StreakTree({ stats, onRefresh, username }) {
   const [loading, setLoading] = useState(false);
   const [watering, setWatering] = useState(false);
   const [message, setMessage] = useState('');
@@ -34,7 +34,7 @@ export default function StreakTree({ stats, onRefresh }) {
     // Simulate watering animation before making request
     setTimeout(async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/streak/increment', {
+        const response = await fetch(`http://localhost:8000/api/streak/increment?username=${username}`, {
           method: 'POST',
         });
         const data = await response.json();

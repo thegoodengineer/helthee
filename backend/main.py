@@ -1,7 +1,7 @@
 import datetime
 import random
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -48,6 +48,12 @@ class ChatMessageSchema(BaseModel):
 class JoinCompetitionSchema(BaseModel):
     competition_id: int
 
+class SamsungSyncSchema(BaseModel):
+    steps: int
+    date: str
+    device_id: str
+    username: str = "Alex"
+
 # Helpers
 def get_tree_stage(streak: int) -> str:
     if streak == 0:
@@ -63,14 +69,28 @@ def get_tree_stage(streak: int) -> str:
     else:
         return "Blooming Tree"
 
+def get_or_create_user(db: Session, username: str) -> User:
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        # Create user with default stats
+        user = User(
+            username=username, 
+            current_streak=0, 
+            max_streak=0, 
+            height=175.0, 
+            weight=70.0,
+            last_active_date=None
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
+
 # API ENDPOINTS
 
 @app.get("/api/dashboard")
-def get_dashboard(db: Session = Depends(get_db)):
-    # Defaulting to the main user "Alex"
-    user = db.query(User).filter(User.username == "Alex").first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+def get_dashboard(username: str = "Alex", db: Session = Depends(get_db)):
+    user = get_or_create_user(db, username)
         
     today = datetime.date.today().isoformat()
     today_steps = db.query(StepLog).filter(StepLog.user_id == user.id, StepLog.date == today).first()
@@ -103,25 +123,20 @@ def get_dashboard(db: Session = Depends(get_db)):
     }
 
 @app.post("/api/streak/increment")
-def increment_streak(db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == "Alex").first()
-    if not user:
-         raise HTTPException(status_code=404, detail="User not found")
+def increment_streak(username: str = "Alex", db: Session = Depends(get_db)):
+    user = get_or_create_user(db, username)
          
     today = datetime.date.today().isoformat()
     yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
     
     if user.last_active_date == today:
-        # Already logged active status today
         return {"status": "already_logged", "current_streak": user.current_streak, "tree_stage": get_tree_stage(user.current_streak)}
         
     elif user.last_active_date == yesterday:
-        # Continued streak
         user.current_streak += 1
         if user.current_streak > user.max_streak:
             user.max_streak = user.current_streak
     else:
-        # Streak broken, reset
         user.current_streak = 1
         
     user.last_active_date = today
@@ -135,7 +150,6 @@ def increment_streak(db: Session = Depends(get_db)):
             CompetitionParticipant.user_id == user.id
         ).first()
         if participant:
-            # Completing a streak activity grants a step bonus to competition
             participant.steps_logged += 1000
             db.commit()
             
@@ -147,8 +161,8 @@ def increment_streak(db: Session = Depends(get_db)):
     }
 
 @app.get("/api/steps")
-def get_steps_history(db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == "Alex").first()
+def get_steps_history(username: str = "Alex", db: Session = Depends(get_db)):
+    user = get_or_create_user(db, username)
     today = datetime.date.today()
     history = []
     
@@ -160,13 +174,12 @@ def get_steps_history(db: Session = Depends(get_db)):
             "steps": log.steps if log else 0,
             "goal": log.goal if log else 10000
         })
-    # Reverse to chronological order (oldest to newest)
     history.reverse()
     return history
 
 @app.post("/api/steps")
-def log_steps(data: StepLogSchema, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == "Alex").first()
+def log_steps(data: StepLogSchema, username: str = "Alex", db: Session = Depends(get_db)):
+    user = get_or_create_user(db, username)
     log = db.query(StepLog).filter(StepLog.user_id == user.id, StepLog.date == data.date).first()
     
     if log:
@@ -192,16 +205,10 @@ def log_steps(data: StepLogSchema, db: Session = Depends(get_db)):
             
     return {"status": "success", "date": data.date, "steps": log.steps, "goal": log.goal}
 
-class SamsungSyncSchema(BaseModel):
-    steps: int
-    date: str
-    device_id: str
-
 @app.post("/api/steps/samsung-sync")
 def sync_samsung_steps(data: SamsungSyncSchema, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == "Alex").first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    # Pull user based on device sent username parameter
+    user = get_or_create_user(db, data.username)
         
     log = db.query(StepLog).filter(StepLog.user_id == user.id, StepLog.date == data.date).first()
     
@@ -217,13 +224,18 @@ def sync_samsung_steps(data: SamsungSyncSchema, db: Session = Depends(get_db)):
     
     active_comp = db.query(Competition).first()
     if active_comp and diff > 0:
+        # Check if user is in active competition, if not join them
         participant = db.query(CompetitionParticipant).filter(
             CompetitionParticipant.competition_id == active_comp.id,
             CompetitionParticipant.user_id == user.id
         ).first()
-        if participant:
-            participant.steps_logged += diff
+        if not participant:
+            participant = CompetitionParticipant(competition_id=active_comp.id, user_id=user.id, steps_logged=0)
+            db.add(participant)
             db.commit()
+        
+        participant.steps_logged += diff
+        db.commit()
             
     return {
         "status": "success", 
@@ -231,18 +243,21 @@ def sync_samsung_steps(data: SamsungSyncSchema, db: Session = Depends(get_db)):
         "device_id": data.device_id,
         "date": data.date, 
         "steps": log.steps, 
-        "goal": log.goal
+        "goal": log.goal,
+        "username": user.username
     }
 
 @app.post("/api/steps/import-samsung-file")
-def import_samsung_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+def import_samsung_file(
+    file: UploadFile = File(...), 
+    username: str = Form("Alex"), 
+    db: Session = Depends(get_db)
+):
     import json
     import csv
     import io
     
-    user = db.query(User).filter(User.username == "Alex").first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = get_or_create_user(db, username)
         
     filename = file.filename.lower()
     content = file.file.read()
@@ -330,9 +345,23 @@ def import_samsung_file(file: UploadFile = File(...), db: Session = Depends(get_
         today_log = db.query(StepLog).filter(StepLog.user_id == user.id, StepLog.date == today).first()
         today_steps = today_log.steps if today_log else 0
         
+        # Add to competition
+        active_comp = db.query(Competition).first()
+        if active_comp and today_steps > 0:
+            participant = db.query(CompetitionParticipant).filter(
+                CompetitionParticipant.competition_id == active_comp.id,
+                CompetitionParticipant.user_id == user.id
+            ).first()
+            if not participant:
+                participant = CompetitionParticipant(competition_id=active_comp.id, user_id=user.id, steps_logged=today_steps)
+                db.add(participant)
+            else:
+                participant.steps_logged = today_steps
+            db.commit()
+        
         return {
             "status": "success",
-            "message": f"Successfully imported {imported_count} days of steps from Samsung Health data export!",
+            "message": f"Successfully imported {imported_count} days of steps for user '{user.username}'!",
             "imported_days": imported_count,
             "today_steps": today_steps
         }
@@ -342,8 +371,8 @@ def import_samsung_file(file: UploadFile = File(...), db: Session = Depends(get_
         raise HTTPException(status_code=500, detail=f"Failed to parse file: {str(e)}")
 
 @app.post("/api/bmi")
-def calculate_bmi(data: BMICalculatorSchema, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == "Alex").first()
+def calculate_bmi(data: BMICalculatorSchema, username: str = "Alex", db: Session = Depends(get_db)):
+    user = get_or_create_user(db, username)
     user.height = data.height
     user.weight = data.weight
     db.commit()
@@ -374,8 +403,8 @@ def calculate_bmi(data: BMICalculatorSchema, db: Session = Depends(get_db)):
     }
 
 @app.get("/api/meals")
-def get_meals(db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == "Alex").first()
+def get_meals(username: str = "Alex", db: Session = Depends(get_db)):
+    user = get_or_create_user(db, username)
     today = datetime.date.today().isoformat()
     meals = db.query(MealLog).filter(MealLog.user_id == user.id, MealLog.date == today).all()
     return meals
@@ -384,12 +413,12 @@ def get_meals(db: Session = Depends(get_db)):
 def log_meal(
     meal_name: str = Form(...),
     photo: Optional[UploadFile] = File(None),
+    username: str = "Alex",
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.username == "Alex").first()
+    user = get_or_create_user(db, username)
     today = datetime.date.today().isoformat()
     
-    # Simple simulated nutritional parser based on keywords
     name_lower = meal_name.lower()
     calories = 300
     protein = 15.0
@@ -417,10 +446,8 @@ def log_meal(
         carbs = round(random.uniform(45, 65), 1)
         fat = round(random.uniform(5, 12), 1)
         
-    # Simulated Photo URL
-    image_url = "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=500" # fallback
+    image_url = "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=500"
     if photo:
-        # In mock backend, we use standard images depending on meal name
         if "chicken" in name_lower or "salmon" in name_lower or "steak" in name_lower:
             image_url = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500"
         elif "salad" in name_lower:
@@ -470,7 +497,6 @@ def chat_gpt(data: ChatMessageSchema, db: Session = Depends(get_db)):
         "Tracking meals helps you identify hidden fats and added sugars. Your recent logs show solid progress!"
     ]
     
-    # Simple rule-based intelligent routing
     if "step" in msg or "walk" in msg:
         reply = "Steps are crucial for steady cardiovascular improvements! Try taking small walking breaks every 2 hours, or park farther away to squeeze in an extra 1,500 steps today. You can track your total steps in the Steps Log module!"
     elif "bmi" in msg or "weight" in msg:
@@ -487,7 +513,7 @@ def chat_gpt(data: ChatMessageSchema, db: Session = Depends(get_db)):
     return {"reply": reply}
 
 @app.get("/api/competitions")
-def get_competitions(db: Session = Depends(get_db)):
+def get_competitions(username: str = "Alex", db: Session = Depends(get_db)):
     comp = db.query(Competition).first()
     if not comp:
         return {"competition": None, "leaderboard": []}
@@ -496,17 +522,15 @@ def get_competitions(db: Session = Depends(get_db)):
         CompetitionParticipant.competition_id == comp.id
     ).all()
     
-    # Build leaderboard sorted by steps
     leaderboard = []
     for p in participants:
         leaderboard.append({
             "username": p.user.username,
             "steps": p.steps_logged,
-            "is_me": p.user.username == "Alex"
+            "is_me": p.user.username == username
         })
     leaderboard.sort(key=lambda x: x["steps"], reverse=True)
     
-    # Assign ranks
     for index, p in enumerate(leaderboard):
         p["rank"] = index + 1
         
@@ -522,9 +546,8 @@ def get_competitions(db: Session = Depends(get_db)):
     }
 
 @app.post("/api/competitions/join")
-def join_competition(data: JoinCompetitionSchema, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == "Alex").first()
-    # Check if already joined
+def join_competition(data: JoinCompetitionSchema, username: str = "Alex", db: Session = Depends(get_db)):
+    user = get_or_create_user(db, username)
     exists = db.query(CompetitionParticipant).filter(
         CompetitionParticipant.competition_id == data.competition_id,
         CompetitionParticipant.user_id == user.id
@@ -543,8 +566,8 @@ def join_competition(data: JoinCompetitionSchema, db: Session = Depends(get_db))
     return {"status": "success"}
 
 @app.get("/api/weekly-report")
-def get_weekly_report(db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == "Alex").first()
+def get_weekly_report(username: str = "Alex", db: Session = Depends(get_db)):
+    user = get_or_create_user(db, username)
     today = datetime.date.today()
     
     daily_stats = []
@@ -555,21 +578,17 @@ def get_weekly_report(db: Session = Depends(get_db)):
     for i in range(7):
         day = (today - datetime.timedelta(days=i)).isoformat()
         
-        # Steps
         steps_log = db.query(StepLog).filter(StepLog.user_id == user.id, StepLog.date == day).first()
         steps = steps_log.steps if steps_log else 0
         total_steps += steps
-        if steps > 3000: # threshold for active day
+        if steps > 3000:
             active_days_count += 1
             
-        # Calories
         meal_logs = db.query(MealLog).filter(MealLog.user_id == user.id, MealLog.date == day).all()
         calories = sum(m.calories for m in meal_logs)
         total_calories += calories
         
-        # Format day name (e.g. "Mon")
-        date_obj = today - datetime.timedelta(days=i)
-        day_name = date_obj.strftime("%a")
+        day_name = (today - datetime.timedelta(days=i)).strftime("%a")
         
         daily_stats.append({
             "date": day,
@@ -580,11 +599,9 @@ def get_weekly_report(db: Session = Depends(get_db)):
         
     daily_stats.reverse()
     
-    # Calculate averages
     avg_steps = round(total_steps / 7)
     avg_calories = round(total_calories / 7)
     
-    # Determine weekly achievements
     achievements = []
     if total_steps > 50000:
         achievements.append({"title": "Half Century Walker", "desc": "Walked over 50,000 steps this week!", "unlocked": True})

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, RefreshCw, Save } from 'lucide-react';
 
-export default function BMICalculator({ stats, onRefresh }) {
+export default function BMICalculator({ stats, onRefresh, username }) {
   const [height, setHeight] = useState(175);
   const [weight, setWeight] = useState(70);
   const [bmi, setBmi] = useState(22.9);
@@ -46,7 +46,7 @@ export default function BMICalculator({ stats, onRefresh }) {
   const handleSaveBmi = async () => {
     setSaving(true);
     try {
-      const res = await fetch('http://localhost:8000/api/bmi', {
+      const res = await fetch(`http://localhost:8000/api/bmi?username=${username}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ height, weight })

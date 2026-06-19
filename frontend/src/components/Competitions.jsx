@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Users, Plus, Award, Calendar, ChevronRight } from 'lucide-react';
 
-export default function Competitions({ stats, onRefresh }) {
+export default function Competitions({ stats, onRefresh, username }) {
   const [competition, setCompetition] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -11,11 +11,11 @@ export default function Competitions({ stats, onRefresh }) {
 
   useEffect(() => {
     fetchCompetitionData();
-  }, []);
+  }, [username]);
 
   const fetchCompetitionData = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/competitions');
+      const res = await fetch(`http://localhost:8000/api/competitions?username=${username}`);
       const data = await res.json();
       setCompetition(data.competition);
       setLeaderboard(data.leaderboard || []);

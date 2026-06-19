@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Footprints, Plus, Minus, Flame, Target, Trophy, RefreshCw, Smartphone } from 'lucide-react';
 
-export default function StepsCalculator({ stats, onRefresh }) {
+export default function StepsCalculator({ stats, onRefresh, username }) {
   const [steps, setSteps] = useState(0);
   const [goal, setGoal] = useState(10000);
   const [logging, setLogging] = useState(false);
@@ -38,7 +38,7 @@ export default function StepsCalculator({ stats, onRefresh }) {
     setLogging(true);
     try {
       const today = new Date().toISOString().split('T')[0];
-      const res = await fetch('http://localhost:8000/api/steps', {
+      const res = await fetch(`http://localhost:8000/api/steps?username=${username}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ steps: value, date: today })
@@ -92,7 +92,8 @@ export default function StepsCalculator({ stats, onRefresh }) {
           body: JSON.stringify({
             steps: simulatedWatchSteps,
             date: today,
-            device_id: "SAMSUNG-SM-S918B (Galaxy Watch6)"
+            device_id: "SAMSUNG-SM-S918B (Galaxy Watch6)",
+            username: username
           })
         });
         const data = await res.json();
@@ -123,6 +124,7 @@ export default function StepsCalculator({ stats, onRefresh }) {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('username', username);
 
     try {
       const res = await fetch('http://localhost:8000/api/steps/import-samsung-file', {

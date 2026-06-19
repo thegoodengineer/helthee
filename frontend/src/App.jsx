@@ -19,10 +19,13 @@ export default function App() {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Dynamic user profile pairing
+  const [username, setUsername] = useState(localStorage.getItem('helthee_username') || 'Alex');
+
   const fetchStats = async () => {
     try {
       setError(false);
-      const res = await fetch('http://localhost:8000/api/dashboard');
+      const res = await fetch(`http://localhost:8000/api/dashboard?username=${username}`);
       if (!res.ok) throw new Error("Backend connection issue");
       const data = await res.json();
       setStats(data);
@@ -36,10 +39,21 @@ export default function App() {
 
   useEffect(() => {
     fetchStats();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, username]);
 
   const triggerRefresh = () => {
     setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleChangeUsername = () => {
+    const newName = prompt("Enter your username to pair your phone and profile:", username);
+    if (newName && newName.trim()) {
+      const formatted = newName.trim();
+      setUsername(formatted);
+      localStorage.setItem('helthee_username', formatted);
+      setLoading(true);
+      triggerRefresh();
+    }
   };
 
   const renderActiveView = () => {
@@ -48,44 +62,76 @@ export default function App() {
         return renderDashboardHub();
       case 'tree':
         return (
-          <div className="focused-module-view">
-            <StreakTree stats={stats} onRefresh={triggerRefresh} />
+          <div className="focused-iframe-view">
+            <div className="iframe-header">
+              <span className="iframe-source">Source: Bloomify Habit Tracker</span>
+              <a 
+                href="https://kazim-45.github.io/bloomify-habit-tracker" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem' }}
+              >
+                Open in New Tab ↗
+              </a>
+            </div>
+            <iframe 
+              src="https://kazim-45.github.io/bloomify-habit-tracker" 
+              title="Bloomify Habit Tracker"
+              className="module-iframe"
+            />
           </div>
         );
       case 'steps':
         return (
           <div className="focused-module-view">
-            <StepsCalculator stats={stats} onRefresh={triggerRefresh} />
+            <StepsCalculator stats={stats} onRefresh={triggerRefresh} username={username} />
           </div>
         );
       case 'competitions':
         return (
           <div className="focused-module-view">
-            <Competitions stats={stats} onRefresh={triggerRefresh} />
+            <Competitions stats={stats} onRefresh={triggerRefresh} username={username} />
           </div>
         );
       case 'chat':
         return (
-          <div className="focused-module-view">
-            <HelpGPT />
+          <div className="focused-iframe-view">
+            <div className="iframe-header">
+              <span className="iframe-source">Source: HelpGPT External App</span>
+              <a 
+                href="https://helpgpt-frontend.vercel.app/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem' }}
+              >
+                Open in New Tab ↗
+              </a>
+            </div>
+            <iframe 
+              src="https://helpgpt-frontend.vercel.app/" 
+              title="HelpGPT External App"
+              className="module-iframe"
+            />
           </div>
         );
       case 'meals':
         return (
           <div className="focused-module-view">
-            <MealPhoto stats={stats} onRefresh={triggerRefresh} />
+            <MealPhoto stats={stats} onRefresh={triggerRefresh} username={username} />
           </div>
         );
       case 'bmi':
         return (
           <div className="focused-module-view">
-            <BMICalculator stats={stats} onRefresh={triggerRefresh} />
+            <BMICalculator stats={stats} onRefresh={triggerRefresh} username={username} />
           </div>
         );
       case 'report':
         return (
           <div className="focused-module-view">
-            <WeeklyReport stats={stats} refreshTrigger={refreshTrigger} />
+            <WeeklyReport stats={stats} refreshTrigger={refreshTrigger} username={username} />
           </div>
         );
       default:
@@ -107,7 +153,7 @@ export default function App() {
           </div>
           <div className="hub-value">{stats?.current_streak || 0} Days</div>
           <div className="hub-meta">Stage: <span className="text-gradient-purple font-bold">{stats?.tree_stage}</span></div>
-          <div className="hub-tap-hint">Open Habit Logger →</div>
+          <div className="hub-tap-hint">Open Bloomify Habit Tracker →</div>
         </div>
 
         {/* Steps Tracker Summary Card */}
@@ -174,7 +220,7 @@ export default function App() {
             <h3>Need Fitness Advice?</h3>
             <p>Chat with HelpGPT to get smart food recipes, workout plans, and health tips.</p>
           </div>
-          <div className="hub-tap-hint" style={{ marginTop: 'auto' }}>Open AI Coach Chat →</div>
+          <div className="hub-tap-hint" style={{ marginTop: 'auto' }}>Open HelpGPT External App →</div>
         </div>
       </div>
     );
@@ -249,13 +295,13 @@ export default function App() {
         </ul>
 
         {stats && (
-          <div className="sidebar-profile">
+          <div className="sidebar-profile cursor-pointer" onClick={handleChangeUsername} title="Click to change your username">
             <div className="profile-icon">
               <User size={16} />
             </div>
             <div className="profile-details">
               <div className="profile-name">{stats.username}</div>
-              <div className="profile-meta">Level 4 Active</div>
+              <div className="profile-meta">Link Device ⚙️</div>
             </div>
           </div>
         )}
@@ -276,7 +322,7 @@ export default function App() {
               {activeTab === 'report' && 'Weekly Performance Insights'}
             </h1>
             <p>
-              {activeTab === 'dashboard' && 'Welcome back! Select a module to manage habits, logs, and statistics.'}
+              {activeTab === 'dashboard' && `Logged in as: ${username}. Select a module to manage habits.`}
               {activeTab === 'tree' && 'Build consistency, water your streak tree daily, and hit goals.'}
               {activeTab === 'steps' && 'Log steps, count calories burned, and check active metrics.'}
               {activeTab === 'meals' && 'Log calorie counts, estimate carbs/fat/protein ratios.'}
@@ -339,6 +385,11 @@ export default function App() {
           padding: 0.75rem 1rem;
           border-radius: 14px;
           margin-top: auto;
+          transition: var(--transition-smooth);
+        }
+        .sidebar-profile:hover {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: rgba(255, 255, 255, 0.15);
         }
         .profile-icon {
           width: 32px;
@@ -375,6 +426,39 @@ export default function App() {
           gap: 1.5rem;
           max-width: 1000px;
           animation: fadeIn 0.4s ease-out;
+        }
+        
+        /* Iframe panel layout */
+        .focused-iframe-view {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          width: 100%;
+          height: calc(100vh - 200px);
+          min-height: 550px;
+          animation: fadeIn 0.4s ease-out;
+        }
+        .iframe-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid var(--border-card);
+          padding: 0.5rem 1rem;
+          border-radius: 10px;
+        }
+        .iframe-source {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--text-secondary);
+        }
+        .module-iframe {
+          flex-grow: 1;
+          width: 100%;
+          height: 100%;
+          border: 1px solid var(--border-card);
+          border-radius: 16px;
+          background: #ffffff;
         }
         
         /* Hub Cards Grid */
